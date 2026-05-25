@@ -7,7 +7,9 @@ export default {
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { useESM: true }]
+    '^.+\\.tsx?$': ['ts-jest', { useESM: true }],
+    '^.+\\.[cm]?js$': ['ts-jest', { useESM: true, diagnostics: false }]
   },
+  transformIgnorePatterns: [],
   testMatch: ['<rootDir>/tests/**/*.test.ts']
 };
