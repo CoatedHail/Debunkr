@@ -1,6 +1,6 @@
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:']);
 
-export function isValidUrl(input: string): boolean {
+export function isValidUrl(input: unknown): input is string {
   if (typeof input !== 'string' || input.length === 0) {
     return false;
   }

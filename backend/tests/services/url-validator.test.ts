@@ -14,8 +14,10 @@ describe('isValidUrl', () => {
   });
 
   it('rejects non-string input', () => {
-    // @ts-expect-error testing runtime behaviour with wrong type
     expect(isValidUrl(null)).toBe(false);
+    expect(isValidUrl(undefined)).toBe(false);
+    expect(isValidUrl(42)).toBe(false);
+    expect(isValidUrl({ url: 'https://example.com' })).toBe(false);
   });
 
   it('rejects javascript: URLs', () => {
