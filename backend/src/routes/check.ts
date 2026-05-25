@@ -1,13 +1,61 @@
 import { Hono } from 'hono';
+import Anthropic from '@anthropic-ai/sdk';
 import { isValidUrl } from '../services/url-validator.js';
-import { createJobStore } from '../services/job-store.js';
+import { createJobStore, type JobStore } from '../services/job-store.js';
+import { extractArticle } from '../services/article-extractor.js';
+import { analyzeContent, type AnalyzeResult } from '../services/llm-analyzer.js';
+import { analyzeContentStub } from '../services/stub-analyzer.js';
+import { env, hasRealLlm } from '../config/env.js';
 import type { ApiError } from '../types/api.js';
 
-// In M1 the JobStore is module-singleton. In M2+ this moves to a dependency-
-// injection container so tests can use isolated stores.
-const store = createJobStore();
+// Module singletons. Replaceable via setTestDeps() for integration tests.
+let store: JobStore = createJobStore();
+let client: Anthropic | null = hasRealLlm()
+  ? new Anthropic({ apiKey: env.anthropicApiKey })
+  : null;
+
+export function setTestDeps(deps: { store?: JobStore; client?: Anthropic | null }): void {
+  if (deps.store) store = deps.store;
+  if (deps.client !== undefined) client = deps.client;
+}
 
 export const checkRoutes = new Hono();
+
+async function runAnalysis(articleText: string): Promise<AnalyzeResult> {
+  if (client) {
+    return analyzeContent(articleText, { client, model: env.anthropicModel });
+  }
+  return analyzeContentStub(articleText);
+}
+
+async function runPipeline(jobId: string, url: string): Promise<void> {
+  const extraction = await extractArticle(url);
+  if (!extraction.ok) {
+    store.update(jobId, { status: 'failed', error: extraction.error });
+    return;
+  }
+
+  store.update(jobId, {
+    status: 'partial',
+    article: {
+      title: extraction.article.title,
+      byline: extraction.article.byline,
+      siteName: extraction.article.siteName
+    }
+  });
+
+  const analysis = await runAnalysis(extraction.article.text);
+  if (!analysis.ok) {
+    store.update(jobId, { status: 'failed', error: analysis.error });
+    return;
+  }
+
+  store.update(jobId, {
+    status: 'complete',
+    contentQuality: analysis.score,
+    contentReasoning: analysis.reasoning
+  });
+}
 
 checkRoutes.post('/check', async (c) => {
   const body = await c.req.json().catch(() => null);
@@ -22,7 +70,6 @@ checkRoutes.post('/check', async (c) => {
     };
     return c.json(err, 400);
   }
-
   if (!isValidUrl(body.url)) {
     const err: ApiError = {
       error: {
@@ -35,8 +82,16 @@ checkRoutes.post('/check', async (c) => {
   }
 
   const job = store.create({ url: body.url });
-  // M1 stub: immediately "complete" the job with the URL echoed back.
-  store.complete(job.jobId, { echo: body.url });
+  runPipeline(job.jobId, body.url).catch(() => {
+    store.update(job.jobId, {
+      status: 'failed',
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Unexpected error during analysis.',
+        retryable: true
+      }
+    });
+  });
 
   return c.json({ jobId: job.jobId, status: 'pending' }, 202);
 });
