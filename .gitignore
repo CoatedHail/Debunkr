@@ -1,1 +1,33 @@
+# Brainstorm session files
 .superpowers/
+
+# Node
+node_modules/
+dist/
+build/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Expo
+.expo/
+.expo-shared/
+web-build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
