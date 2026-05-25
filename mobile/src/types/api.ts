@@ -31,10 +31,19 @@ export interface CheckResponseAccepted {
   status: 'pending';
 }
 
-export type JobStatus = 'pending' | 'partial' | 'complete';
+export type JobStatus = 'pending' | 'partial' | 'complete' | 'failed';
+
+export interface ArticleMetadata {
+  title?: string;
+  byline?: string;
+  siteName?: string;
+}
 
 export interface JobResult {
   jobId: string;
   status: JobStatus;
-  echo?: string; // M1 only
+  article?: ArticleMetadata;
+  contentQuality?: number;
+  contentReasoning?: string;
+  error?: ApiError['error'];
 }
