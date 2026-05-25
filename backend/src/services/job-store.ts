@@ -8,7 +8,7 @@ export interface CreateJobInput {
 export interface JobStore {
   create(input: CreateJobInput): JobResult;
   get(jobId: string): JobResult | undefined;
-  complete(jobId: string, fields: { echo?: string }): void;
+  update(jobId: string, fields: Partial<Omit<JobResult, 'jobId'>>): void;
 }
 
 export function createJobStore(): JobStore {
@@ -16,7 +16,7 @@ export function createJobStore(): JobStore {
 
   return {
     create({ url }) {
-      void url; // M1: url not persisted beyond echo, used for logging in callers
+      void url; // not persisted in M2 store, callers log it themselves
       const jobId = randomUUID();
       const job: JobResult = { jobId, status: 'pending' };
       jobs.set(jobId, job);
@@ -27,14 +27,10 @@ export function createJobStore(): JobStore {
       return jobs.get(jobId);
     },
 
-    complete(jobId, fields) {
+    update(jobId, fields) {
       const existing = jobs.get(jobId);
       if (!existing) return;
-      jobs.set(jobId, {
-        ...existing,
-        status: 'complete',
-        ...fields
-      });
+      jobs.set(jobId, { ...existing, ...fields });
     }
   };
 }
