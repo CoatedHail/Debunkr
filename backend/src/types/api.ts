@@ -39,16 +39,37 @@ export interface ArticleMetadata {
   siteName?: string;
 }
 
+export type ReliabilityTier = 'high' | 'medium' | 'mixed' | 'low' | 'unknown';
+
+/**
+ * One source's verdict on a publisher. The `source` field is what gets shown
+ * to the user verbatim ("AllSides says...", "Wikipedia editors rate..."),
+ * per spec §9 "always attributed".
+ */
+export interface DatasetVerdict {
+  source: 'curated-wikipedia' | 'ifcn';
+  verdict: string;            // human-readable, displayed verbatim
+  details?: string;           // optional second line (e.g., wiki section)
+  link?: string;              // optional URL to underlying methodology page
+}
+
+export interface PublisherLookup {
+  canonicalDomain: string | null;
+  reliabilityTier: ReliabilityTier;
+  verdicts: DatasetVerdict[];
+}
+
 // Fields populate as work progresses:
 //   pending  → only jobId, status
-//   partial  → + article metadata (extraction done, LLM not yet)
+//   partial  → + article metadata + publisher lookup
 //   complete → + contentQuality, contentReasoning
 //   failed   → + error
 export interface JobResult {
   jobId: string;
   status: JobStatus;
   article?: ArticleMetadata;
-  contentQuality?: number;       // 0-100, M2: only sub-score we compute
-  contentReasoning?: string;     // 1-3 short sentences, plain English
-  error?: ApiError['error'];     // populated when status='failed'
+  publisher?: PublisherLookup;
+  contentQuality?: number;
+  contentReasoning?: string;
+  error?: ApiError['error'];
 }
