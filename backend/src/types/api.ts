@@ -17,7 +17,7 @@ export interface ApiError {
     code: ErrorCode;
     message: string;
     retryable: boolean;
-    retryAfter?: number; // seconds
+    retryAfter?: number;
   };
 }
 
@@ -31,12 +31,24 @@ export interface CheckResponseAccepted {
   status: 'pending';
 }
 
-export type JobStatus = 'pending' | 'partial' | 'complete';
+export type JobStatus = 'pending' | 'partial' | 'complete' | 'failed';
 
-// In M1 the only field beyond the standard envelope is `echo`.
-// Later milestones add sourceRep, contentQuality, bias, confidence, etc.
+export interface ArticleMetadata {
+  title?: string;
+  byline?: string;
+  siteName?: string;
+}
+
+// Fields populate as work progresses:
+//   pending  → only jobId, status
+//   partial  → + article metadata (extraction done, LLM not yet)
+//   complete → + contentQuality, contentReasoning
+//   failed   → + error
 export interface JobResult {
   jobId: string;
   status: JobStatus;
-  echo?: string; // M1 only — removed in M2
+  article?: ArticleMetadata;
+  contentQuality?: number;       // 0-100, M2: only sub-score we compute
+  contentReasoning?: string;     // 1-3 short sentences, plain English
+  error?: ApiError['error'];     // populated when status='failed'
 }
