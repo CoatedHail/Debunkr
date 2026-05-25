@@ -18,7 +18,8 @@
     "hono": "^4.5.0",
     "jsdom": "^29.1.1",
     "pino": "^9.0.0",
-    "pino-pretty": "^11.0.0"
+    "pino-pretty": "^11.0.0",
+    "tldts": "^7.4.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
