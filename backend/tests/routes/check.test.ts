@@ -2,12 +2,18 @@ import { app } from '../../src/server.js';
 import { setTestDeps } from '../../src/routes/check.js';
 import { createJobStore } from '../../src/services/job-store.js';
 
-function mockClient(scoreText: string) {
+function mockClient(scoreJson?: string) {
+  const text = scoreJson ?? JSON.stringify({
+    contentQuality: 80,
+    contentReasoning: 'Well-sourced.',
+    biasScale: 0,
+    counterArgument: 'Counter test.'
+  });
   return {
     messages: {
       create: jest.fn(async () => ({
-        content: [{ type: 'text', text: scoreText }],
-        usage: { input_tokens: 100, output_tokens: 30 }
+        content: [{ type: 'text', text }],
+        usage: { input_tokens: 100, output_tokens: 50 }
       }))
     }
   };
@@ -19,7 +25,7 @@ const SAMPLE_HTML = `<!doctype html><html><head><title>Reuters Test</title></hea
 beforeEach(() => {
   setTestDeps({
     store: createJobStore(),
-    client: mockClient('{"contentQuality": 80, "contentReasoning": "Well-sourced."}') as any
+    client: mockClient() as any
   });
 
   (globalThis as any).fetch = jest.fn(async () =>
@@ -86,6 +92,12 @@ describe('GET /api/check/:jobId — full pipeline', () => {
     expect(final).toBeDefined();
     expect(final.status).toBe('complete');
     expect(final.contentQuality).toBe(80);
+    expect(final.overall).toBeGreaterThan(0);
+    expect(final.bucket).toBeDefined();
+    expect(final.confidence).toBeDefined();
+    expect(final.sourceRep).toBeDefined();
+    expect(final.bias?.scale).toBe(0);
+    expect(final.counterArgument).toBe('Counter test.');
     expect(final.article.title).toBe('Reuters Test');
   });
 
@@ -140,6 +152,10 @@ describe('Stub LLM mode (no client)', () => {
     }
     expect(final.status).toBe('complete');
     expect(final.contentQuality).toBe(75);
+    expect(final.overall).toBeGreaterThan(0);
+    expect(final.bias?.scale).toBe(0);
+    expect(final.bias?.source).toBe('llm');
+    expect(final.counterArgument).toContain('STUB');
     expect(final.contentReasoning).toContain('STUB');
   });
 });
@@ -209,5 +225,68 @@ describe('Dataset lookup integration', () => {
     expect(final.status).toBe('failed');
     expect(final.publisher.canonicalDomain).toBe('bbc.co.uk');
     expect(final.publisher.reliabilityTier).toBe('high');
+  });
+});
+
+describe('Combined scoring', () => {
+  it('uses cheap-signals fallback when publisher is unknown', async () => {
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+    const submit = await app.request('/api/check', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://random-unknown-blog.example/x', deviceId: 'd1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+    let final: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.status === 'complete' || body.status === 'failed') { final = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(final.sourceRepFrom).toBe('cheap-signals');
+    expect(final.cheapSignals).toBeDefined();
+    expect(final.confidence).toBe('low');
+  });
+
+  it('uses publisher tier (high) for nytimes.com', async () => {
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+    const submit = await app.request('/api/check', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://www.nytimes.com/x.html', deviceId: 'd1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+    let final: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.status === 'complete' || body.status === 'failed') { final = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(final.sourceRepFrom).toBe('curated-wikipedia');
+    expect(final.sourceRep).toBe(90); // high tier
+  });
+
+  it('confidence is high when publisher in 2+ datasets AND extraction ok', async () => {
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+    const submit = await app.request('/api/check', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://www.reuters.com/x', deviceId: 'd1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+    let final: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.status === 'complete' || body.status === 'failed') { final = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    // reuters.com is in BOTH curated + ifcn → datasetCount=2
+    expect(final.confidence).toBe('high');
   });
 });
