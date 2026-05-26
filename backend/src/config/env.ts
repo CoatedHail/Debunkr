@@ -1,4 +1,9 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+
+// override: true so values in backend/.env win over pre-set shell env vars.
+// (Without this, an empty ANTHROPIC_API_KEY in the user's shell blocks the
+// real value from being read out of .env.)
+dotenv.config({ override: true });
 
 export const env = {
   port: Number(process.env.PORT ?? 4000),
