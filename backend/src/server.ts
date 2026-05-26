@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { checkRoutes } from './routes/check.js';
+import { feedbackRoutes } from './routes/feedback.js';
 
 export const app = new Hono();
 
-// Permissive CORS for V1 — backend has no auth and exposes only POST/GET /api/check.
-// Tighten to specific origins when mobile builds ship + web version exists.
+// Permissive CORS for V1.
 app.use('*', cors());
 
 app.get('/health', (c) => {
@@ -13,3 +13,4 @@ app.get('/health', (c) => {
 });
 
 app.route('/api', checkRoutes);
+app.route('/api', feedbackRoutes);
