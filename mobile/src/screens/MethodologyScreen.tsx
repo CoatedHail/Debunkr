@@ -49,6 +49,21 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
           because it trains media literacy.
         </Text>
 
+        <Text style={styles.h2}>Deep Analysis (opt-in)</Text>
+        <Text style={styles.p}>
+          The "Run Deep Analysis" button on a result spawns three more
+          Claude calls in sequence: a SKEPTIC searching for every reason
+          to distrust the article, an ADVOCATE searching for every reason
+          to trust it, and a JUDGE weighing both reports and returning a
+          final verdict. Each agent cites specific evidence from the
+          article. Costs ~3-5× a normal check and takes ~10-20s.
+        </Text>
+        <Text style={styles.p}>
+          KNOWN LIMITATION: in V1 all three agents are the same model
+          family (Claude), so they share underlying biases. A future
+          update will mix model families for genuine bias reduction.
+        </Text>
+
         <Text style={styles.h2}>Confidence</Text>
         <Text style={styles.p}>
           • High — publisher in 2+ datasets AND article successfully read.{'\n'}
@@ -60,9 +75,8 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
 
         <Text style={styles.h2}>What we don't do yet</Text>
         <Text style={styles.p}>
-          No multi-perspective AI debate (M5), no caching, no rate limit,
-          no real bias dataset (AllSides license pending), no domain-age
-          WHOIS lookup (M6).
+          No caching, no rate limit, no real bias dataset (AllSides license
+          pending), no domain-age WHOIS lookup. All deferred to M6.
         </Text>
 
         <Text style={styles.h2}>Feedback</Text>
