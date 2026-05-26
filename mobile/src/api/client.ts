@@ -118,3 +118,33 @@ export async function startDeep(jobId: string): Promise<ApiResult<{ jobId: strin
   }
   return { ok: true, value: body as { jobId: string; deepStatus: 'pending' } };
 }
+
+export async function submitFeedback(
+  jobId: string,
+  vote: 'up' | 'down',
+  deviceId: string,
+  comment?: string
+): Promise<ApiResult<{ ok: true }>> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}/api/feedback`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jobId, vote, deviceId, comment })
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Network error — is the backend running?', retryable: true }
+    };
+  }
+  const body = (await parseJsonSafe(res)) as { ok: true } | ApiError | null;
+  if (!res.ok) {
+    if (body && 'error' in body) return { ok: false, error: body.error };
+    return {
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: `HTTP ${res.status}`, retryable: false }
+    };
+  }
+  return { ok: true, value: { ok: true } };
+}
