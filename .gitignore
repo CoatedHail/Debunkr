@@ -31,3 +31,7 @@ coverage/
 
 # TypeScript
 *.tsbuildinfo
+
+# Backend runtime data (cost events, feedback events — never commit)
+backend/data/
+data/
