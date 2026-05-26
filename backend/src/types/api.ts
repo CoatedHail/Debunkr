@@ -41,16 +41,11 @@ export interface ArticleMetadata {
 
 export type ReliabilityTier = 'high' | 'medium' | 'mixed' | 'low' | 'unknown';
 
-/**
- * One source's verdict on a publisher. The `source` field is what gets shown
- * to the user verbatim ("AllSides says...", "Wikipedia editors rate..."),
- * per spec §9 "always attributed".
- */
 export interface DatasetVerdict {
   source: 'curated-wikipedia' | 'ifcn';
-  verdict: string;            // human-readable, displayed verbatim
-  details?: string;           // optional second line (e.g., wiki section)
-  link?: string;              // optional URL to underlying methodology page
+  verdict: string;
+  details?: string;
+  link?: string;
 }
 
 export interface PublisherLookup {
@@ -59,17 +54,55 @@ export interface PublisherLookup {
   verdicts: DatasetVerdict[];
 }
 
+export type OverallBucket =
+  | 'highly-credible' // 80-100
+  | 'mostly-credible' // 60-79
+  | 'mixed'           // 40-59
+  | 'questionable'    // 20-39
+  | 'low';            // 0-19
+
+export type Confidence = 'high' | 'medium' | 'low';
+
+// -5 (far left) ... 0 (center) ... +5 (far right)
+// `source` records where the estimate came from. 'llm' implies low confidence.
+export interface BiasEstimate {
+  scale: number;
+  source: 'llm' | 'allsides';
+}
+
+export interface CheapSignalsBreakdown {
+  https: boolean;
+  hasByline: boolean;
+  hasSiteName: boolean;
+  articleLength: number;          // characters
+  longEnoughBonus: boolean;       // > 2000 chars
+  score: number;                  // 30-60
+}
+
 // Fields populate as work progresses:
 //   pending  → only jobId, status
 //   partial  → + article metadata + publisher lookup
-//   complete → + contentQuality, contentReasoning
-//   failed   → + error
+//   complete → + overall + bucket + confidence + sourceRep + contentQuality + bias + counterArgument
+//   failed   → + error (publisher may still be present)
 export interface JobResult {
   jobId: string;
   status: JobStatus;
   article?: ArticleMetadata;
   publisher?: PublisherLookup;
-  contentQuality?: number;
+
+  // Combined output (M4)
+  overall?: number;               // 0-100
+  bucket?: OverallBucket;
+  confidence?: Confidence;
+
+  // Sub-scores (M4)
+  sourceRep?: number;             // 0-100 — from publisher tier OR cheap signals
+  sourceRepFrom?: 'curated-wikipedia' | 'cheap-signals';
+  cheapSignals?: CheapSignalsBreakdown;  // present when sourceRepFrom='cheap-signals'
+  contentQuality?: number;        // 0-100 — from LLM
   contentReasoning?: string;
+  bias?: BiasEstimate;
+  counterArgument?: string;
+
   error?: ApiError['error'];
 }
