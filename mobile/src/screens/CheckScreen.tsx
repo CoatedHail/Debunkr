@@ -9,11 +9,13 @@ import {
   TextInput,
   View
 } from 'react-native';
-import { submitCheck, getJob } from '../api/client';
+import { submitCheck, getJob, startDeep } from '../api/client';
 import { getDeviceId } from '../lib/device-id';
 import type {
+  AgentReport,
   Confidence,
   DatasetVerdict,
+  DeepAnalysis,
   JobResult,
   OverallBucket,
   PublisherLookup,
@@ -29,6 +31,7 @@ type ScreenState =
 
 const POLL_INTERVAL_MS = 1000;
 const POLL_MAX_ATTEMPTS = 30;
+const DEEP_POLL_MAX_ATTEMPTS = 60; // deep is slower
 
 export interface CheckScreenProps {
   onOpenMethodology: () => void;
@@ -91,6 +94,60 @@ function sourceLabel(s: DatasetVerdict['source']): string {
   return s === 'curated-wikipedia' ? 'Wikipedia' : 'IFCN';
 }
 
+function AgentCard({ label, color, report, expanded, onToggle }:
+  { label: string; color: string; report: AgentReport; expanded: boolean; onToggle: () => void }) {
+  return (
+    <View style={[styles.agentCard, { borderColor: color }]}>
+      <Pressable onPress={onToggle}>
+        <View style={styles.inline}>
+          <Text style={[styles.agentLabel, { color }]}>{label}</Text>
+          <Text style={[styles.agentChevron, { color }]}>{expanded ? '▼' : '▶'}</Text>
+        </View>
+      </Pressable>
+      {expanded && (
+        <View style={{ marginTop: 8 }}>
+          <Text style={styles.agentReasoning}>{report.reasoning}</Text>
+          {report.evidence.length > 0 && (
+            <View style={{ marginTop: 6 }}>
+              <Text style={styles.agentEvidenceTitle}>Evidence:</Text>
+              {report.evidence.map((e, i) => (
+                <Text key={i} style={styles.agentEvidence}>• {e}</Text>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function DeepAnalysisBlock({ deep }: { deep: DeepAnalysis }) {
+  const [skExpanded, setSkExpanded] = useState(false);
+  const [adExpanded, setAdExpanded] = useState(false);
+  return (
+    <View style={styles.deepBox}>
+      <Text style={styles.deepHeader}>Deep Analysis</Text>
+
+      <View style={styles.judgeBox}>
+        <Text style={styles.judgeLabel}>JUDGE'S VERDICT</Text>
+        <Text style={styles.judgeVerdict}>{deep.judge.verdict}</Text>
+        <View style={[styles.confidencePill, { borderColor: confidenceColor(deep.judge.confidence), marginTop: 6 }]}>
+          <Text style={[styles.confidencePillText, { color: confidenceColor(deep.judge.confidence) }]}>
+            {deep.judge.confidence.toUpperCase()} CONFIDENCE
+          </Text>
+        </View>
+      </View>
+
+      <AgentCard label="SKEPTIC" color="#b91c1c" report={deep.skeptic}
+                 expanded={skExpanded} onToggle={() => setSkExpanded(!skExpanded)} />
+      <AgentCard label="ADVOCATE" color="#15803d" report={deep.advocate}
+                 expanded={adExpanded} onToggle={() => setAdExpanded(!adExpanded)} />
+
+      <Text style={styles.modelLimitation}>{deep.modelLimitation}</Text>
+    </View>
+  );
+}
+
 function HeadlineBlock({ job }: { job: JobResult }) {
   if (job.overall === undefined || !job.bucket || !job.confidence) return null;
   const color = overallColor(job.overall);
@@ -117,7 +174,6 @@ function BreakdownBlock({ job }: { job: JobResult }) {
   return (
     <View style={styles.breakdownBox}>
       <Text style={styles.label}>Breakdown</Text>
-
       <View style={styles.breakdownRow}>
         <Text style={styles.breakdownName}>Publisher reputation</Text>
         <Text style={styles.breakdownScore}>{job.sourceRep}</Text>
@@ -127,7 +183,6 @@ function BreakdownBlock({ job }: { job: JobResult }) {
           ? 'from curated Wikipedia consensus'
           : 'from article-only signals (publisher unknown)'}
       </Text>
-
       {job.cheapSignals && (
         <View style={styles.cheapBox}>
           <Text style={styles.cheapTitle}>Signals used:</Text>
@@ -137,24 +192,18 @@ function BreakdownBlock({ job }: { job: JobResult }) {
           <Text style={styles.cheapLine}>{job.cheapSignals.longEnoughBonus ? '✓' : '✗'} Article {'>'} 2000 chars</Text>
         </View>
       )}
-
       <View style={[styles.breakdownRow, { marginTop: 12 }]}>
         <Text style={styles.breakdownName}>Content quality (AI)</Text>
         <Text style={styles.breakdownScore}>{job.contentQuality}</Text>
       </View>
-      {job.contentReasoning && (
-        <Text style={styles.breakdownSource}>{job.contentReasoning}</Text>
-      )}
-
+      {job.contentReasoning && (<Text style={styles.breakdownSource}>{job.contentReasoning}</Text>)}
       {job.bias && (
         <>
           <View style={[styles.breakdownRow, { marginTop: 12 }]}>
             <Text style={styles.breakdownName}>Bias (AI)</Text>
             <Text style={styles.breakdownScore}>{biasLabel(job.bias.scale)}</Text>
           </View>
-          <Text style={styles.breakdownSource}>
-            LLM-estimated, low confidence on its own.
-          </Text>
+          <Text style={styles.breakdownSource}>LLM-estimated, low confidence on its own.</Text>
         </>
       )}
     </View>
@@ -207,6 +256,26 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
     setState({ kind: 'error', message: 'Timed out waiting for the result.' });
   }
 
+  async function pollDeep(jobId: string): Promise<void> {
+    for (let attempt = 0; attempt < DEEP_POLL_MAX_ATTEMPTS; attempt++) {
+      const result = await getJob(jobId);
+      if (!result.ok) {
+        // Update current state with the new error inline; keep result intact
+        setState((prev) => {
+          if (prev.kind !== 'result') return prev;
+          return { kind: 'result', job: { ...prev.job, deepStatus: 'failed', deepError: result.error } };
+        });
+        return;
+      }
+      setState((prev) => {
+        if (prev.kind !== 'result') return prev;
+        return { kind: 'result', job: result.value };
+      });
+      if (result.value.deepStatus === 'complete' || result.value.deepStatus === 'failed') return;
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    }
+  }
+
   async function onSubmit() {
     if (!url.trim()) return;
     setState({ kind: 'submitting' });
@@ -218,6 +287,20 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
     }
     setState({ kind: 'polling', jobId: submission.value.jobId });
     await pollUntilDone(submission.value.jobId);
+  }
+
+  async function onStartDeep() {
+    if (state.kind !== 'result') return;
+    const jobId = state.job.jobId;
+    setState({ kind: 'result', job: { ...state.job, deepStatus: 'pending', deepError: undefined } });
+    const r = await startDeep(jobId);
+    if (!r.ok) {
+      setState((prev) => prev.kind === 'result'
+        ? { kind: 'result', job: { ...prev.job, deepStatus: 'failed', deepError: r.error } }
+        : prev);
+      return;
+    }
+    await pollDeep(jobId);
   }
 
   function onReset() {
@@ -296,7 +379,6 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
                 </View>
               )}
               <BreakdownBlock job={completeJob} />
-
               {completeJob.publisher && <PublisherDetailBlock publisher={completeJob.publisher} />}
 
               {completeJob.counterArgument && (
@@ -307,6 +389,44 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
                     The strongest reason this rating could be wrong. Media-literacy tool.
                   </Text>
                 </View>
+              )}
+
+              {/* Deep Analysis CTA + section */}
+              {(!completeJob.deepStatus || completeJob.deepStatus === 'idle') && (
+                <View style={{ marginTop: 12 }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.deepButton, pressed && styles.buttonPressed]}
+                    onPress={onStartDeep}
+                  >
+                    <Text style={styles.deepButtonText}>Run Deep Analysis</Text>
+                  </Pressable>
+                  <Text style={styles.deepHint}>
+                    Costs ~3-5× a normal check. Spawns a Skeptic + Advocate + Judge debate.
+                    Takes 10-20s.
+                  </Text>
+                </View>
+              )}
+
+              {completeJob.deepStatus === 'pending' && (
+                <View style={[styles.inline, { marginTop: 12 }]}>
+                  <ActivityIndicator />
+                  <Text style={styles.muted}>Running Deep Analysis…</Text>
+                </View>
+              )}
+
+              {completeJob.deepStatus === 'failed' && completeJob.deepError && (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.errorTitle}>Deep Analysis failed</Text>
+                  <Text style={styles.errorMessage}>{completeJob.deepError.message}</Text>
+                  <Pressable onPress={onStartDeep} style={{ marginTop: 8 }}>
+                    <Text style={styles.link}>Retry</Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {completeJob.deepStatus === 'complete' && completeJob.deepAnalysis && (
+                <DeepAnalysisBlock deep={completeJob.deepAnalysis} />
               )}
 
               <Text style={[styles.disclaimer, { marginTop: 16 }]}>
@@ -372,7 +492,6 @@ const styles = StyleSheet.create({
   label: { color: '#5f6368', fontSize: 12, textTransform: 'uppercase', marginTop: 8 },
   value: { fontSize: 16, color: '#1a1a1a' },
 
-  // Headline
   headlineScore: { fontSize: 56, fontWeight: '800', lineHeight: 62 },
   headlineLabel: { fontSize: 18, fontWeight: '700' },
   confidencePill: {
@@ -382,7 +501,6 @@ const styles = StyleSheet.create({
   },
   confidencePillText: { fontSize: 10, fontWeight: '700' },
 
-  // Breakdown
   breakdownBox: {
     backgroundColor: '#fafaf7', borderColor: '#e6e3dc', borderWidth: 1,
     borderRadius: 8, padding: 12, marginTop: 16
@@ -392,7 +510,6 @@ const styles = StyleSheet.create({
   breakdownScore: { fontSize: 16, color: '#1a1a1a', fontWeight: '700' },
   breakdownSource: { fontSize: 12, color: '#5f6368', marginTop: 2 },
 
-  // Cheap signals box
   cheapBox: {
     backgroundColor: '#fff', borderColor: '#e6e3dc', borderWidth: 1,
     borderRadius: 6, padding: 8, marginTop: 6
@@ -400,7 +517,6 @@ const styles = StyleSheet.create({
   cheapTitle: { fontSize: 11, color: '#5f6368', fontWeight: '600', textTransform: 'uppercase', marginBottom: 2 },
   cheapLine: { fontSize: 12, color: '#1a1a1a' },
 
-  // Counter-argument
   counterBox: {
     backgroundColor: '#fef3c7', borderColor: '#f59e0b', borderWidth: 1,
     borderRadius: 8, padding: 12, marginTop: 12
@@ -409,7 +525,40 @@ const styles = StyleSheet.create({
   counterText: { fontSize: 14, color: '#1a1a1a' },
   counterFootnote: { fontSize: 11, color: '#92400e', marginTop: 6, fontStyle: 'italic' },
 
-  // Publisher block
+  // Deep Analysis
+  deepButton: {
+    backgroundColor: '#7c3aed', borderRadius: 8, padding: 12, alignItems: 'center'
+  },
+  deepButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  deepHint: { fontSize: 12, color: '#5f6368', marginTop: 6, textAlign: 'center', fontStyle: 'italic' },
+
+  deepBox: {
+    backgroundColor: '#f5f3ff', borderColor: '#c4b5fd', borderWidth: 1,
+    borderRadius: 8, padding: 12, marginTop: 12
+  },
+  deepHeader: { fontSize: 14, fontWeight: '700', color: '#5b21b6', textTransform: 'uppercase', marginBottom: 8 },
+
+  judgeBox: {
+    backgroundColor: '#fff', borderColor: '#c4b5fd', borderWidth: 1,
+    borderRadius: 6, padding: 10, marginBottom: 8
+  },
+  judgeLabel: { fontSize: 11, color: '#5b21b6', fontWeight: '700', marginBottom: 4 },
+  judgeVerdict: { fontSize: 14, color: '#1a1a1a' },
+
+  agentCard: {
+    backgroundColor: '#fff', borderWidth: 1,
+    borderRadius: 6, padding: 10, marginTop: 6
+  },
+  agentLabel: { fontSize: 12, fontWeight: '700', flex: 1 },
+  agentChevron: { fontSize: 14, fontWeight: '700' },
+  agentReasoning: { fontSize: 14, color: '#1a1a1a' },
+  agentEvidenceTitle: { fontSize: 11, color: '#5f6368', fontWeight: '600', textTransform: 'uppercase' },
+  agentEvidence: { fontSize: 13, color: '#1a1a1a', marginTop: 2, lineHeight: 18 },
+
+  modelLimitation: {
+    fontSize: 11, color: '#5b21b6', marginTop: 8, fontStyle: 'italic', lineHeight: 16
+  },
+
   tierBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, alignSelf: 'flex-start' },
   tierBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   verdictRow: {
