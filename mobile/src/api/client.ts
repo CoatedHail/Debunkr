@@ -90,3 +90,31 @@ export async function getJob(jobId: string): Promise<ApiResult<JobResult>> {
 
   return { ok: true, value: body as JobResult };
 }
+
+export async function startDeep(jobId: string): Promise<ApiResult<{ jobId: string; deepStatus: 'pending' }>> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}/api/check/${jobId}/deep`, {
+      method: 'POST'
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Network error — is the backend running?',
+        retryable: true
+      }
+    };
+  }
+
+  const body = (await parseJsonSafe(res)) as { jobId: string; deepStatus: 'pending' } | ApiError | null;
+  if (!res.ok) {
+    if (body && 'error' in body) return { ok: false, error: body.error };
+    return {
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: `HTTP ${res.status}`, retryable: false }
+    };
+  }
+  return { ok: true, value: body as { jobId: string; deepStatus: 'pending' } };
+}
