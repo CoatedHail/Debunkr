@@ -7,13 +7,23 @@ export interface AnalyzeOptions {
   model: string;
 }
 
+export interface AnalyzeOk {
+  ok: true;
+  contentQuality: number;
+  contentReasoning: string;
+  biasScale: number;
+  counterArgument: string;
+}
+
 export type AnalyzeResult =
-  | { ok: true; score: number; reasoning: string }
+  | AnalyzeOk
   | { ok: false; error: ApiError['error'] };
 
 interface ParsedLlmOutput {
   contentQuality: number;
   contentReasoning: string;
+  biasScale: number;
+  counterArgument: string;
 }
 
 function parseAndValidate(text: string): ParsedLlmOutput | null {
@@ -28,15 +38,24 @@ function parseAndValidate(text: string): ParsedLlmOutput | null {
   const o = obj as Record<string, unknown>;
   const q = o.contentQuality;
   const r = o.contentReasoning;
+  const b = o.biasScale;
+  const ca = o.counterArgument;
   if (typeof q !== 'number' || !Number.isFinite(q) || q < 0 || q > 100) return null;
   if (typeof r !== 'string' || r.length === 0 || r.length > 2_000) return null;
-  return { contentQuality: Math.round(q), contentReasoning: r };
+  if (typeof b !== 'number' || !Number.isFinite(b) || b < -5 || b > 5) return null;
+  if (typeof ca !== 'string' || ca.length === 0 || ca.length > 2_000) return null;
+  return {
+    contentQuality: Math.round(q),
+    contentReasoning: r,
+    biasScale: Math.round(b),
+    counterArgument: ca
+  };
 }
 
 async function callOnce(client: Anthropic, model: string, userMessage: string): Promise<string> {
   const response = await client.messages.create({
     model,
-    max_tokens: 400,
+    max_tokens: 800,
     system: CONTENT_ANALYSIS_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userMessage }]
   });
@@ -67,11 +86,7 @@ export async function analyzeContent(
     }
     const parsed = parseAndValidate(text);
     if (parsed) {
-      return {
-        ok: true,
-        score: parsed.contentQuality,
-        reasoning: parsed.contentReasoning
-      };
+      return { ok: true, ...parsed };
     }
   }
 
