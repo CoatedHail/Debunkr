@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,7 +9,7 @@ import {
   TextInput,
   View
 } from 'react-native';
-import { submitCheck, getJob, startDeep } from '../api/client';
+import { submitCheck, getJob, startDeep, submitFeedback } from '../api/client';
 import { getDeviceId } from '../lib/device-id';
 import type {
   AgentReport,
@@ -148,6 +148,93 @@ function DeepAnalysisBlock({ deep }: { deep: DeepAnalysis }) {
   );
 }
 
+function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | null }) {
+  const [vote, setVote] = useState<'up' | 'down' | null>(null);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function send(finalVote: 'up' | 'down', finalComment?: string) {
+    if (!deviceId) return;
+    setSubmitting(true);
+    setError(null);
+    const r = await submitFeedback(jobId, finalVote, deviceId, finalComment);
+    setSubmitting(false);
+    if (!r.ok) {
+      setError(r.error.message);
+      return;
+    }
+    setDone(true);
+  }
+
+  if (done) {
+    return (
+      <View style={styles.feedbackBox}>
+        <Text style={styles.feedbackThanks}>Thanks — your feedback helps improve the system.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.feedbackBox}>
+      <Text style={styles.feedbackLabel}>Was this rating fair?</Text>
+      <View style={styles.feedbackButtons}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={submitting || vote !== null}
+          style={({ pressed }) => [
+            styles.feedbackButton,
+            vote === 'up' && styles.feedbackButtonSelected,
+            pressed && styles.buttonPressed
+          ]}
+          onPress={() => { setVote('up'); send('up'); }}
+        >
+          <Text style={styles.feedbackButtonText}>👍</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={submitting || vote !== null}
+          style={({ pressed }) => [
+            styles.feedbackButton,
+            vote === 'down' && styles.feedbackButtonSelected,
+            pressed && styles.buttonPressed
+          ]}
+          onPress={() => setVote('down')}
+        >
+          <Text style={styles.feedbackButtonText}>👎</Text>
+        </Pressable>
+      </View>
+
+      {vote === 'down' && (
+        <View style={{ marginTop: 8 }}>
+          <TextInput
+            style={styles.feedbackInput}
+            placeholder="Why? (optional)"
+            value={comment}
+            onChangeText={setComment}
+            multiline
+            maxLength={500}
+            editable={!submitting}
+          />
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed, submitting && styles.buttonDisabled, { marginTop: 6 }]}
+            disabled={submitting}
+            onPress={() => send('down', comment.trim() || undefined)}
+          >
+            <Text style={styles.buttonText}>{submitting ? 'Sending…' : 'Send feedback'}</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {error && (
+        <Text style={[styles.errorMessage, { marginTop: 6 }]}>{error}</Text>
+      )}
+    </View>
+  );
+}
+
 function HeadlineBlock({ job }: { job: JobResult }) {
   if (job.overall === undefined || !job.bucket || !job.confidence) return null;
   const color = overallColor(job.overall);
@@ -238,6 +325,11 @@ function PublisherDetailBlock({ publisher }: { publisher: PublisherLookup }) {
 export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScreenProps) {
   const [url, setUrl] = useState('');
   const [state, setState] = useState<ScreenState>({ kind: 'idle' });
+  const [feedbackDeviceId, setFeedbackDeviceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getDeviceId().then(setFeedbackDeviceId);
+  }, []);
 
   async function pollUntilDone(jobId: string): Promise<void> {
     for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
@@ -390,6 +482,8 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
                   </Text>
                 </View>
               )}
+
+              <FeedbackBlock jobId={completeJob.jobId} deviceId={feedbackDeviceId} />
 
               {/* Deep Analysis CTA + section */}
               {(!completeJob.deepStatus || completeJob.deepStatus === 'idle') && (
@@ -575,5 +669,57 @@ const styles = StyleSheet.create({
   errorTitle: { color: '#b91c1c', fontWeight: '600', marginBottom: 4 },
   errorMessage: { color: '#1a1a1a' },
   resetLink: { marginTop: 16 },
-  resetText: { color: '#2563eb', fontWeight: '600' }
+  resetText: { color: '#2563eb', fontWeight: '600' },
+
+  // Feedback widget
+  feedbackBox: {
+    backgroundColor: '#fafaf7',
+    borderColor: '#e6e3dc',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16
+  },
+  feedbackLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5f6368'
+  },
+  feedbackThanks: {
+    fontSize: 13,
+    color: '#15803d',
+    fontStyle: 'italic'
+  },
+  feedbackButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8
+  },
+  feedbackButton: {
+    width: 60,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e6e3dc',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  feedbackButtonSelected: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#2563eb'
+  },
+  feedbackButtonText: {
+    fontSize: 22
+  },
+  feedbackInput: {
+    backgroundColor: '#fff',
+    borderColor: '#e6e3dc',
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 8,
+    minHeight: 60,
+    fontSize: 14,
+    textAlignVertical: 'top'
+  }
 });
