@@ -21,32 +21,48 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
         <Text style={styles.title}>How this works</Text>
         <Text style={styles.subtitle}>Stub content — final wording lands at launch (M7).</Text>
 
-        <Text style={styles.h2}>What we do</Text>
+        <Text style={styles.h2}>The overall score</Text>
         <Text style={styles.p}>
-          When you paste a URL, our backend (1) identifies the publisher
-          from the domain, (2) looks the publisher up in a curated reliability
-          list and the IFCN signatory list, then (3) downloads the article
-          and asks Claude (an AI model from Anthropic) to evaluate the writing
-          for sourcing, tone, logic, and hedging. You see both the publisher
-          tier and the article-level AI score, with their sources attributed.
+          Overall = 0.45 × Publisher reputation + 0.45 × Article content quality + 0.10 × Bias adjustment.
+          The bias adjustment is a small penalty for extreme political lean
+          (either direction); bias itself isn't "wrong" but extreme lean
+          correlates with selective reporting.
         </Text>
 
-        <Text style={styles.h2}>Sources we use today</Text>
+        <Text style={styles.h2}>Publisher reputation</Text>
         <Text style={styles.p}>
-          • Curated reliability list — ~30 publishers, hand-picked from
-          Wikipedia's Perennial Sources editor consensus. We commit the list
-          to the codebase so you can see exactly what we have.{'\n'}
-          • IFCN signatory list — fact-checking organizations certified by
-          the International Fact-Checking Network at Poynter.{'\n'}
-          • Article content — sent to Claude (Haiku 4.5 by default) for
-          writing-quality analysis.
+          Pulled from our curated list (~30 publishers, hand-picked from
+          Wikipedia's Perennial Sources editor consensus) plus the IFCN
+          signatory list of certified fact-checkers. If we don't recognize
+          the publisher, we fall back to article-level signals (HTTPS, byline
+          present, article length, extracted publisher name). Fallback scores
+          are bounded 30–60 and the confidence indicator drops to "low".
         </Text>
 
-        <Text style={styles.h2}>What we do not do yet</Text>
+        <Text style={styles.h2}>Content quality + bias + counter-argument</Text>
         <Text style={styles.p}>
-          We do not yet compute a single combined score, surface a
-          confidence indicator, show the strongest counter-argument, or run
-          multi-perspective AI debate. Those land in M4 and M5.
+          All three come from a single call to Claude (an AI model from
+          Anthropic). The model reads the article and returns: a 0–100
+          quality score, a –5 to +5 bias estimate (LLM-estimated, low
+          confidence on its own), and the strongest argument that the
+          rating could be wrong. The counter-argument is always shown
+          because it trains media literacy.
+        </Text>
+
+        <Text style={styles.h2}>Confidence</Text>
+        <Text style={styles.p}>
+          • High — publisher in 2+ datasets AND article successfully read.{'\n'}
+          • Medium — 1 dataset, OR datasets known but article couldn't be read.{'\n'}
+          • Low — unknown publisher (cheap-signals fallback).{'\n'}
+          Computed by deterministic rules, not LLM judgment, so it's
+          consistent across calls.
+        </Text>
+
+        <Text style={styles.h2}>What we don't do yet</Text>
+        <Text style={styles.p}>
+          No multi-perspective AI debate (M5), no caching, no rate limit,
+          no real bias dataset (AllSides license pending), no domain-age
+          WHOIS lookup (M6).
         </Text>
 
         <Text style={styles.h2}>Feedback</Text>
