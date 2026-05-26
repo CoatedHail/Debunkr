@@ -143,3 +143,71 @@ describe('Stub LLM mode (no client)', () => {
     expect(final.contentReasoning).toContain('STUB');
   });
 });
+
+describe('Dataset lookup integration', () => {
+  it('attaches publisher info (high tier) for a known publisher URL', async () => {
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+    const submit = await app.request('/api/check', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://www.nytimes.com/2025/x.html', deviceId: 'dev-1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+
+    let final: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.status === 'complete' || body.status === 'failed') { final = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(final.publisher.canonicalDomain).toBe('nytimes.com');
+    expect(final.publisher.reliabilityTier).toBe('high');
+    expect(final.publisher.verdicts.length).toBeGreaterThan(0);
+  });
+
+  it('returns unknown tier for an unknown publisher URL', async () => {
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+    const submit = await app.request('/api/check', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://some-random-unknown-blog.example/post', deviceId: 'dev-1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+
+    let final: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.status === 'complete' || body.status === 'failed') { final = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(final.publisher.reliabilityTier).toBe('unknown');
+    expect(final.publisher.verdicts).toHaveLength(0);
+  });
+
+  it('attaches publisher info even on extraction failure', async () => {
+    (globalThis as any).fetch = jest.fn(async () => { throw new TypeError('boom'); });
+    const submit = await app.request('/api/check', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://www.bbc.co.uk/news/x', deviceId: 'dev-1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+
+    let final: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.status === 'failed') { final = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(final.status).toBe('failed');
+    expect(final.publisher.canonicalDomain).toBe('bbc.co.uk');
+    expect(final.publisher.reliabilityTier).toBe('high');
+  });
+});

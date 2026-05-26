@@ -5,18 +5,25 @@ import { createJobStore, type JobStore } from '../services/job-store.js';
 import { extractArticle } from '../services/article-extractor.js';
 import { analyzeContent, type AnalyzeResult } from '../services/llm-analyzer.js';
 import { analyzeContentStub } from '../services/stub-analyzer.js';
+import { canonicalDomain, isKnownShortener } from '../services/canonical-domain.js';
+import { createDatasetLookup, type DatasetLookup } from '../services/dataset-lookup.js';
 import { env, hasRealLlm } from '../config/env.js';
-import type { ApiError } from '../types/api.js';
+import type { ApiError, PublisherLookup } from '../types/api.js';
 
-// Module singletons. Replaceable via setTestDeps() for integration tests.
 let store: JobStore = createJobStore();
+let lookup: DatasetLookup = createDatasetLookup();
 let client: Anthropic | null = hasRealLlm()
   ? new Anthropic({ apiKey: env.anthropicApiKey })
   : null;
 
-export function setTestDeps(deps: { store?: JobStore; client?: Anthropic | null }): void {
+export function setTestDeps(deps: {
+  store?: JobStore;
+  client?: Anthropic | null;
+  lookup?: DatasetLookup;
+}): void {
   if (deps.store) store = deps.store;
   if (deps.client !== undefined) client = deps.client;
+  if (deps.lookup) lookup = deps.lookup;
 }
 
 export const checkRoutes = new Hono();
@@ -28,15 +35,36 @@ async function runAnalysis(articleText: string): Promise<AnalyzeResult> {
   return analyzeContentStub(articleText);
 }
 
+function lookupPublisher(url: string): PublisherLookup {
+  const domain = canonicalDomain(url);
+  if (!domain) {
+    return { canonicalDomain: null, reliabilityTier: 'unknown', verdicts: [] };
+  }
+  if (isKnownShortener(domain)) {
+    return {
+      canonicalDomain: domain,
+      reliabilityTier: 'unknown',
+      verdicts: [{
+        source: 'curated-wikipedia',
+        verdict: `URL is a known shortener (${domain}). Resolve the link and check the destination.`
+      }]
+    };
+  }
+  return lookup(domain);
+}
+
 async function runPipeline(jobId: string, url: string): Promise<void> {
+  const publisher = lookupPublisher(url);
+
   const extraction = await extractArticle(url);
   if (!extraction.ok) {
-    store.update(jobId, { status: 'failed', error: extraction.error });
+    store.update(jobId, { status: 'failed', publisher, error: extraction.error });
     return;
   }
 
   store.update(jobId, {
     status: 'partial',
+    publisher,
     article: {
       title: extraction.article.title,
       byline: extraction.article.byline,
