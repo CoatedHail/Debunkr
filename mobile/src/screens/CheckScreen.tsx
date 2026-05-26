@@ -12,8 +12,10 @@ import {
 import { submitCheck, getJob } from '../api/client';
 import { getDeviceId } from '../lib/device-id';
 import type {
+  Confidence,
   DatasetVerdict,
   JobResult,
+  OverallBucket,
   PublisherLookup,
   ReliabilityTier
 } from '../types/api';
@@ -33,18 +35,28 @@ export interface CheckScreenProps {
   onOpenLimitations: () => void;
 }
 
-function scoreColor(score: number): string {
+function overallColor(score: number): string {
   if (score >= 70) return '#15803d';
   if (score >= 40) return '#b45309';
   return '#b91c1c';
 }
 
-function scoreLabel(score: number): string {
-  if (score >= 80) return 'Highly credible';
-  if (score >= 60) return 'Mostly credible';
-  if (score >= 40) return 'Mixed';
-  if (score >= 20) return 'Questionable';
-  return 'Low credibility';
+function bucketLabel(bucket: OverallBucket): string {
+  switch (bucket) {
+    case 'highly-credible': return 'Highly credible';
+    case 'mostly-credible': return 'Mostly credible';
+    case 'mixed':           return 'Mixed';
+    case 'questionable':    return 'Questionable';
+    case 'low':             return 'Low credibility';
+  }
+}
+
+function confidenceColor(c: Confidence): string {
+  switch (c) {
+    case 'high':   return '#15803d';
+    case 'medium': return '#b45309';
+    case 'low':    return '#5f6368';
+  }
 }
 
 function tierColor(tier: ReliabilityTier): string {
@@ -67,16 +79,91 @@ function tierLabel(tier: ReliabilityTier): string {
   }
 }
 
-function sourceLabel(source: DatasetVerdict['source']): string {
-  switch (source) {
-    case 'curated-wikipedia': return 'Wikipedia';
-    case 'ifcn':              return 'IFCN';
-  }
+function biasLabel(scale: number): string {
+  if (scale <= -3) return 'Strong left lean';
+  if (scale <= -1) return 'Mild left lean';
+  if (scale === 0) return 'Centered / neutral';
+  if (scale <= 2)  return 'Mild right lean';
+  return 'Strong right lean';
 }
 
-function PublisherBlock({ publisher }: { publisher: PublisherLookup }) {
+function sourceLabel(s: DatasetVerdict['source']): string {
+  return s === 'curated-wikipedia' ? 'Wikipedia' : 'IFCN';
+}
+
+function HeadlineBlock({ job }: { job: JobResult }) {
+  if (job.overall === undefined || !job.bucket || !job.confidence) return null;
+  const color = overallColor(job.overall);
   return (
     <View>
+      <Text style={styles.label}>Overall credibility</Text>
+      <View style={styles.inline}>
+        <Text style={[styles.headlineScore, { color }]}>{job.overall}</Text>
+        <View style={{ flexShrink: 1 }}>
+          <Text style={[styles.headlineLabel, { color }]}>{bucketLabel(job.bucket)}</Text>
+          <View style={[styles.confidencePill, { borderColor: confidenceColor(job.confidence) }]}>
+            <Text style={[styles.confidencePillText, { color: confidenceColor(job.confidence) }]}>
+              {job.confidence.toUpperCase()} CONFIDENCE
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function BreakdownBlock({ job }: { job: JobResult }) {
+  if (job.sourceRep === undefined || job.contentQuality === undefined) return null;
+  return (
+    <View style={styles.breakdownBox}>
+      <Text style={styles.label}>Breakdown</Text>
+
+      <View style={styles.breakdownRow}>
+        <Text style={styles.breakdownName}>Publisher reputation</Text>
+        <Text style={styles.breakdownScore}>{job.sourceRep}</Text>
+      </View>
+      <Text style={styles.breakdownSource}>
+        {job.sourceRepFrom === 'curated-wikipedia'
+          ? 'from curated Wikipedia consensus'
+          : 'from article-only signals (publisher unknown)'}
+      </Text>
+
+      {job.cheapSignals && (
+        <View style={styles.cheapBox}>
+          <Text style={styles.cheapTitle}>Signals used:</Text>
+          <Text style={styles.cheapLine}>{job.cheapSignals.https ? '✓' : '✗'} HTTPS</Text>
+          <Text style={styles.cheapLine}>{job.cheapSignals.hasByline ? '✓' : '✗'} Byline present</Text>
+          <Text style={styles.cheapLine}>{job.cheapSignals.hasSiteName ? '✓' : '✗'} Publisher name extracted</Text>
+          <Text style={styles.cheapLine}>{job.cheapSignals.longEnoughBonus ? '✓' : '✗'} Article {'>'} 2000 chars</Text>
+        </View>
+      )}
+
+      <View style={[styles.breakdownRow, { marginTop: 12 }]}>
+        <Text style={styles.breakdownName}>Content quality (AI)</Text>
+        <Text style={styles.breakdownScore}>{job.contentQuality}</Text>
+      </View>
+      {job.contentReasoning && (
+        <Text style={styles.breakdownSource}>{job.contentReasoning}</Text>
+      )}
+
+      {job.bias && (
+        <>
+          <View style={[styles.breakdownRow, { marginTop: 12 }]}>
+            <Text style={styles.breakdownName}>Bias (AI)</Text>
+            <Text style={styles.breakdownScore}>{biasLabel(job.bias.scale)}</Text>
+          </View>
+          <Text style={styles.breakdownSource}>
+            LLM-estimated, low confidence on its own.
+          </Text>
+        </>
+      )}
+    </View>
+  );
+}
+
+function PublisherDetailBlock({ publisher }: { publisher: PublisherLookup }) {
+  return (
+    <View style={{ marginTop: 12 }}>
       <Text style={styles.label}>Publisher</Text>
       <Text style={styles.value}>{publisher.canonicalDomain ?? 'Unknown domain'}</Text>
       <View style={[styles.inline, { marginTop: 6 }]}>
@@ -84,21 +171,16 @@ function PublisherBlock({ publisher }: { publisher: PublisherLookup }) {
           <Text style={styles.tierBadgeText}>{tierLabel(publisher.reliabilityTier)}</Text>
         </View>
       </View>
-
-      {publisher.verdicts.length > 0 ? (
-        <View style={{ marginTop: 8 }}>
+      {publisher.verdicts.length > 0 && (
+        <View style={{ marginTop: 6 }}>
           {publisher.verdicts.map((v, i) => (
             <View key={i} style={styles.verdictRow}>
               <Text style={styles.verdictSource}>{sourceLabel(v.source)}</Text>
               <Text style={styles.verdictText}>{v.verdict}</Text>
-              {v.details ? <Text style={styles.verdictDetails}>{v.details}</Text> : null}
+              {v.details && <Text style={styles.verdictDetails}>{v.details}</Text>}
             </View>
           ))}
         </View>
-      ) : (
-        <Text style={[styles.muted, { marginTop: 6 }]}>
-          We don't have this publisher in our list yet. AI content score below is the only signal.
-        </Text>
       )}
     </View>
   );
@@ -145,6 +227,8 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
   const isWorking = state.kind === 'submitting' || state.kind === 'polling';
   const polling = state.kind === 'polling' ? state.job : undefined;
+  const completeJob = state.kind === 'result' && state.job.status === 'complete' ? state.job : null;
+  const failedJob = state.kind === 'result' && state.job.status === 'failed' ? state.job : null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -188,13 +272,13 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
           {state.kind === 'polling' && (
             <View>
-              {polling?.publisher ? <PublisherBlock publisher={polling.publisher} /> : null}
-              {polling?.article?.title ? (
+              {polling?.publisher && <PublisherDetailBlock publisher={polling.publisher} />}
+              {polling?.article?.title && (
                 <View style={{ marginTop: 12 }}>
                   <Text style={styles.label}>Article</Text>
                   <Text style={styles.value}>{polling.article.title}</Text>
                 </View>
-              ) : null}
+              )}
               <View style={[styles.inline, { marginTop: 12 }]}>
                 <ActivityIndicator />
                 <Text style={styles.muted}>Analyzing…</Text>
@@ -202,37 +286,31 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
             </View>
           )}
 
-          {state.kind === 'result' && state.job.status === 'complete' && state.job.contentQuality !== undefined && (
+          {completeJob && (
             <View>
-              {state.job.publisher && <PublisherBlock publisher={state.job.publisher} />}
-
-              {state.job.article?.title && (
-                <View style={{ marginTop: 12 }}>
+              <HeadlineBlock job={completeJob} />
+              {completeJob.article?.title && (
+                <View style={{ marginTop: 16 }}>
                   <Text style={styles.label}>Article</Text>
-                  <Text style={styles.value}>{state.job.article.title}</Text>
+                  <Text style={styles.value}>{completeJob.article.title}</Text>
+                </View>
+              )}
+              <BreakdownBlock job={completeJob} />
+
+              {completeJob.publisher && <PublisherDetailBlock publisher={completeJob.publisher} />}
+
+              {completeJob.counterArgument && (
+                <View style={styles.counterBox}>
+                  <Text style={styles.counterTitle}>Counter-argument</Text>
+                  <Text style={styles.counterText}>{completeJob.counterArgument}</Text>
+                  <Text style={styles.counterFootnote}>
+                    The strongest reason this rating could be wrong. Media-literacy tool.
+                  </Text>
                 </View>
               )}
 
-              <Text style={[styles.label, { marginTop: 16 }]}>Content quality (AI)</Text>
-              <View style={styles.inline}>
-                <Text style={[styles.score, { color: scoreColor(state.job.contentQuality) }]}>
-                  {state.job.contentQuality}
-                </Text>
-                <Text style={[styles.scoreLabel, { color: scoreColor(state.job.contentQuality) }]}>
-                  {scoreLabel(state.job.contentQuality)}
-                </Text>
-              </View>
-
-              {state.job.contentReasoning && (
-                <>
-                  <Text style={[styles.label, { marginTop: 12 }]}>AI reasoning</Text>
-                  <Text style={styles.value}>{state.job.contentReasoning}</Text>
-                </>
-              )}
-
               <Text style={[styles.disclaimer, { marginTop: 16 }]}>
-                Publisher tier is from our cited sources. AI content quality may contain errors.
-                Combined weighted scoring lands in the next update.
+                AI-generated. May contain errors. Publisher tier from cited sources.
               </Text>
 
               <View style={styles.linkRow}>
@@ -246,11 +324,11 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
             </View>
           )}
 
-          {state.kind === 'result' && state.job.status === 'failed' && state.job.error && (
+          {failedJob && failedJob.error && (
             <View>
-              {state.job.publisher && <PublisherBlock publisher={state.job.publisher} />}
+              {failedJob.publisher && <PublisherDetailBlock publisher={failedJob.publisher} />}
               <Text style={[styles.errorTitle, { marginTop: 12 }]}>Couldn't analyze this URL</Text>
-              <Text style={styles.errorMessage}>{state.job.error.message}</Text>
+              <Text style={styles.errorMessage}>{failedJob.error.message}</Text>
               <Pressable onPress={onReset} style={styles.resetLink}>
                 <Text style={styles.resetText}>Try another URL</Text>
               </Pressable>
@@ -289,37 +367,64 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderColor: '#e6e3dc', borderWidth: 1,
     borderRadius: 8, padding: 16, marginTop: 8
   },
-  inline: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  inline: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   muted: { color: '#5f6368' },
   label: { color: '#5f6368', fontSize: 12, textTransform: 'uppercase', marginTop: 8 },
   value: { fontSize: 16, color: '#1a1a1a' },
-  score: { fontSize: 40, fontWeight: '700' },
-  scoreLabel: { fontSize: 16, fontWeight: '600' },
+
+  // Headline
+  headlineScore: { fontSize: 56, fontWeight: '800', lineHeight: 62 },
+  headlineLabel: { fontSize: 18, fontWeight: '700' },
+  confidencePill: {
+    borderWidth: 1, borderRadius: 999,
+    paddingHorizontal: 8, paddingVertical: 2, marginTop: 4,
+    alignSelf: 'flex-start'
+  },
+  confidencePillText: { fontSize: 10, fontWeight: '700' },
+
+  // Breakdown
+  breakdownBox: {
+    backgroundColor: '#fafaf7', borderColor: '#e6e3dc', borderWidth: 1,
+    borderRadius: 8, padding: 12, marginTop: 16
+  },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  breakdownName: { fontSize: 14, color: '#1a1a1a', fontWeight: '600' },
+  breakdownScore: { fontSize: 16, color: '#1a1a1a', fontWeight: '700' },
+  breakdownSource: { fontSize: 12, color: '#5f6368', marginTop: 2 },
+
+  // Cheap signals box
+  cheapBox: {
+    backgroundColor: '#fff', borderColor: '#e6e3dc', borderWidth: 1,
+    borderRadius: 6, padding: 8, marginTop: 6
+  },
+  cheapTitle: { fontSize: 11, color: '#5f6368', fontWeight: '600', textTransform: 'uppercase', marginBottom: 2 },
+  cheapLine: { fontSize: 12, color: '#1a1a1a' },
+
+  // Counter-argument
+  counterBox: {
+    backgroundColor: '#fef3c7', borderColor: '#f59e0b', borderWidth: 1,
+    borderRadius: 8, padding: 12, marginTop: 12
+  },
+  counterTitle: { fontSize: 12, color: '#92400e', fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 },
+  counterText: { fontSize: 14, color: '#1a1a1a' },
+  counterFootnote: { fontSize: 11, color: '#92400e', marginTop: 6, fontStyle: 'italic' },
+
+  // Publisher block
+  tierBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, alignSelf: 'flex-start' },
+  tierBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  verdictRow: {
+    backgroundColor: '#fafaf7', borderColor: '#e6e3dc', borderWidth: 1,
+    borderRadius: 6, padding: 10, marginTop: 6
+  },
+  verdictSource: { fontSize: 11, color: '#5f6368', fontWeight: '600', textTransform: 'uppercase', marginBottom: 2 },
+  verdictText: { fontSize: 14, color: '#1a1a1a' },
+  verdictDetails: { fontSize: 12, color: '#5f6368', marginTop: 2 },
+
   disclaimer: { fontSize: 12, color: '#5f6368', fontStyle: 'italic' },
   linkRow: { flexDirection: 'row', gap: 18, marginTop: 8 },
   link: { color: '#2563eb', fontWeight: '500' },
   errorTitle: { color: '#b91c1c', fontWeight: '600', marginBottom: 4 },
   errorMessage: { color: '#1a1a1a' },
   resetLink: { marginTop: 16 },
-  resetText: { color: '#2563eb', fontWeight: '600' },
-
-  // Publisher block
-  tierBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    alignSelf: 'flex-start'
-  },
-  tierBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  verdictRow: {
-    backgroundColor: '#fafaf7',
-    borderColor: '#e6e3dc',
-    borderWidth: 1,
-    borderRadius: 6,
-    padding: 10,
-    marginTop: 6
-  },
-  verdictSource: { fontSize: 11, color: '#5f6368', fontWeight: '600', textTransform: 'uppercase', marginBottom: 2 },
-  verdictText: { fontSize: 14, color: '#1a1a1a' },
-  verdictDetails: { fontSize: 12, color: '#5f6368', marginTop: 2 }
+  resetText: { color: '#2563eb', fontWeight: '600' }
 });
