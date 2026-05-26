@@ -10,7 +10,9 @@ export const env = {
   logLevel: process.env.LOG_LEVEL ?? 'info',
   // Optional: empty string treated as missing. Routes use stub when absent.
   anthropicApiKey: (process.env.ANTHROPIC_API_KEY ?? '').trim() || undefined,
-  anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5'
+  anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5',
+  // Monthly budget in USD. 0 = disabled (no budget cap enforced).
+  monthlyBudgetUsd: Number(process.env.MONTHLY_BUDGET_USD ?? '0')
 };
 
 export function hasRealLlm(): boolean {
