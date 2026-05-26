@@ -1,14 +1,18 @@
 import { Hono } from 'hono';
+import path from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { isValidUrl } from '../services/url-validator.js';
 import { createJobStore, type JobStore } from '../services/job-store.js';
 import { extractArticle } from '../services/article-extractor.js';
-import { analyzeContent, type AnalyzeResult } from '../services/llm-analyzer.js';
+import { analyzeContent, type AnalyzeResult, type UsageStats } from '../services/llm-analyzer.js';
 import { analyzeContentStub } from '../services/stub-analyzer.js';
 import { runDeepAnalysis, type DeepResult } from '../services/deep-analyzer.js';
 import { runDeepAnalysisStub } from '../services/deep-analyzer-stub.js';
 import { canonicalDomain, isKnownShortener } from '../services/canonical-domain.js';
 import { createDatasetLookup, type DatasetLookup } from '../services/dataset-lookup.js';
+import { createRateLimiter, type RateLimiter } from '../services/rate-limiter.js';
+import { createCostTracker, type CostTracker } from '../services/cost-tracker.js';
+import { createCache, articleTextHash, ttlForUrl, type Cache } from '../services/cache.js';
 import {
   sourceRepFromTier,
   computeOverall,
@@ -19,40 +23,74 @@ import { cheapSignals } from '../services/cheap-signals.js';
 import { env, hasRealLlm } from '../config/env.js';
 import type { ApiError, PublisherLookup } from '../types/api.js';
 
+const DATA_DIR = path.resolve(process.cwd(), 'data');
+
 let store: JobStore = createJobStore();
 let lookup: DatasetLookup = createDatasetLookup();
+let rateLimiter: RateLimiter = createRateLimiter();
+let costTracker: CostTracker = createCostTracker({ monthlyBudgetUsd: env.monthlyBudgetUsd, dataDir: DATA_DIR });
+let cache: Cache = createCache();
 let client: Anthropic | null = hasRealLlm()
   ? new Anthropic({ apiKey: env.anthropicApiKey })
   : null;
-let skipSsrfCheck = false;
+let extractorOpts: { skipSsrfCheck?: boolean } = {};
 
-// Track article text per jobId so the deep route can re-analyze without
-// re-fetching. In M6 this moves to Postgres alongside the job store.
 const articleTextByJob = new Map<string, string>();
 
 export function setTestDeps(deps: {
   store?: JobStore;
   client?: Anthropic | null;
   lookup?: DatasetLookup;
+  rateLimiter?: RateLimiter;
+  costTracker?: CostTracker;
+  cache?: Cache;
   skipSsrfCheck?: boolean;
 }): void {
   if (deps.store) store = deps.store;
   if (deps.client !== undefined) client = deps.client;
   if (deps.lookup) lookup = deps.lookup;
-  if (deps.skipSsrfCheck !== undefined) skipSsrfCheck = deps.skipSsrfCheck;
-  // Always clear inter-job text on test override
+  if (deps.rateLimiter) rateLimiter = deps.rateLimiter;
+  if (deps.costTracker) costTracker = deps.costTracker;
+  if (deps.cache) cache = deps.cache;
+  if (deps.skipSsrfCheck !== undefined) extractorOpts = { skipSsrfCheck: deps.skipSsrfCheck };
   articleTextByJob.clear();
 }
 
 export const checkRoutes = new Hono();
 
-async function runAnalysis(articleText: string): Promise<AnalyzeResult> {
-  if (client) return analyzeContent(articleText, { client, model: env.anthropicModel });
+function clientIp(c: any): string {
+  const xff = c.req.header('x-forwarded-for');
+  if (xff) return xff.split(',')[0].trim();
+  return c.req.header('x-real-ip') ?? 'unknown';
+}
+
+async function runAnalysisWithCost(jobId: string, deviceId: string, ip: string, articleText: string): Promise<AnalyzeResult> {
+  if (client) {
+    const result = await analyzeContent(articleText, { client, model: env.anthropicModel });
+    if (result.usage) {
+      await costTracker.record({
+        jobId, deviceId, ip, model: env.anthropicModel,
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens
+      });
+    }
+    return result;
+  }
   return analyzeContentStub(articleText);
 }
 
-async function runDeep(articleText: string): Promise<DeepResult> {
-  if (client) return runDeepAnalysis(articleText, { client, model: env.anthropicModel });
+async function runDeepWithCost(jobId: string, deviceId: string, ip: string, articleText: string): Promise<DeepResult> {
+  if (client) {
+    const result = await runDeepAnalysis(articleText, { client, model: env.anthropicModel });
+    if (result.usage.inputTokens + result.usage.outputTokens > 0) {
+      await costTracker.record({
+        jobId, deviceId, ip, model: env.anthropicModel,
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens
+      });
+    }
+    return result;
+  }
   return runDeepAnalysisStub(articleText);
 }
 
@@ -74,10 +112,10 @@ function lookupPublisher(url: string): PublisherLookup {
   return lookup(domain);
 }
 
-async function runPipeline(jobId: string, url: string): Promise<void> {
+async function runPipeline(jobId: string, url: string, deviceId: string, ip: string): Promise<void> {
   const publisher = lookupPublisher(url);
 
-  const extraction = await extractArticle(url, { skipSsrfCheck });
+  const extraction = await extractArticle(url, extractorOpts);
   if (!extraction.ok) {
     store.update(jobId, { status: 'failed', publisher, error: extraction.error });
     return;
@@ -93,7 +131,17 @@ async function runPipeline(jobId: string, url: string): Promise<void> {
     }
   });
 
-  const analysis = await runAnalysis(extraction.article.text);
+  // Cache lookup before LLM
+  const canonUrl = canonicalDomain(url) ?? url;
+  const hash = articleTextHash(extraction.article.text);
+  const cached = cache.get(canonUrl, hash);
+  if (cached) {
+    store.update(jobId, { ...cached, jobId });
+    articleTextByJob.set(jobId, extraction.article.text);
+    return;
+  }
+
+  const analysis = await runAnalysisWithCost(jobId, deviceId, ip, extraction.article.text);
   if (!analysis.ok) {
     store.update(jobId, { status: 'failed', error: analysis.error });
     return;
@@ -123,11 +171,17 @@ async function runPipeline(jobId: string, url: string): Promise<void> {
     bias: analysis.biasScale
   });
 
-  // Stash article text for potential Deep Analysis later.
   articleTextByJob.set(jobId, extraction.article.text);
 
-  store.update(jobId, {
-    status: 'complete',
+  const completedResult = {
+    jobId,
+    status: 'complete' as const,
+    article: {
+      title: extraction.article.title,
+      byline: extraction.article.byline,
+      siteName: extraction.article.siteName
+    },
+    publisher,
     overall,
     bucket: bucketLabel(overall),
     confidence: deriveConfidence({
@@ -139,13 +193,20 @@ async function runPipeline(jobId: string, url: string): Promise<void> {
     cheapSignals: cheap,
     contentQuality: analysis.contentQuality,
     contentReasoning: analysis.contentReasoning,
-    bias: { scale: analysis.biasScale, source: 'llm' },
+    bias: { scale: analysis.biasScale, source: 'llm' as const },
     counterArgument: analysis.counterArgument,
-    deepStatus: 'idle'
-  });
+    deepStatus: 'idle' as const
+  };
+
+  store.update(jobId, completedResult);
+
+  // Cache the completed result (without jobId — caller overlays new jobId on hit).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { jobId: _ignore, ...cacheable } = completedResult;
+  cache.set(canonUrl, hash, cacheable as any, ttlForUrl(url));
 }
 
-async function runDeepPipeline(jobId: string): Promise<void> {
+async function runDeepPipeline(jobId: string, deviceId: string, ip: string): Promise<void> {
   const text = articleTextByJob.get(jobId);
   if (!text) {
     store.update(jobId, {
@@ -161,7 +222,7 @@ async function runDeepPipeline(jobId: string): Promise<void> {
 
   store.update(jobId, { deepStatus: 'pending' });
 
-  const result = await runDeep(text);
+  const result = await runDeepWithCost(jobId, deviceId, ip, text);
   if (!result.ok) {
     store.update(jobId, { deepStatus: 'failed', deepError: result.error });
     return;
@@ -189,8 +250,37 @@ checkRoutes.post('/check', async (c) => {
     return c.json(err, 400);
   }
 
+  const ip = clientIp(c);
+
+  // Rate limit
+  const rl = rateLimiter.consume(body.deviceId, ip, 'single');
+  if (!rl.allowed) {
+    const err: ApiError = {
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Daily check limit reached. Try again after midnight UTC.',
+        retryable: true,
+        retryAfter: rl.retryAfter
+      }
+    };
+    return c.json(err, 429);
+  }
+
+  // Budget check
+  const budget = await costTracker.check();
+  if (budget.exceeded) {
+    const err: ApiError = {
+      error: {
+        code: 'BUDGET_EXCEEDED',
+        message: `Service paused: monthly AI budget exceeded ($${budget.monthlySpendUsd.toFixed(2)}/$${budget.budgetUsd}). Try next month.`,
+        retryable: false
+      }
+    };
+    return c.json(err, 503);
+  }
+
   const job = store.create({ url: body.url });
-  runPipeline(job.jobId, body.url).catch(() => {
+  runPipeline(job.jobId, body.url, body.deviceId, ip).catch(() => {
     store.update(job.jobId, {
       status: 'failed',
       error: { code: 'INTERNAL_ERROR', message: 'Unexpected error during analysis.', retryable: true }
@@ -235,9 +325,35 @@ checkRoutes.post('/check/:jobId/deep', async (c) => {
     return c.json({ jobId, deepStatus: 'pending' }, 202);
   }
 
-  // Kick off deep pipeline (fire-and-forget; result lands in store).
+  // Extract device + ip from body / headers (re-derive since this is a fresh request)
+  const body = await c.req.json().catch(() => null) ?? {};
+  const deviceId = typeof body.deviceId === 'string' ? body.deviceId : 'unknown';
+  const ip = clientIp(c);
+
+  // Rate limit for deep
+  const rl = rateLimiter.consume(deviceId, ip, 'deep');
+  if (!rl.allowed) {
+    const err: ApiError = {
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Daily Deep Analysis limit reached. Try again after midnight UTC.',
+        retryable: true,
+        retryAfter: rl.retryAfter
+      }
+    };
+    return c.json(err, 429);
+  }
+
+  const budget = await costTracker.check();
+  if (budget.exceeded) {
+    const err: ApiError = {
+      error: { code: 'BUDGET_EXCEEDED', message: 'Service paused: monthly AI budget exceeded.', retryable: false }
+    };
+    return c.json(err, 503);
+  }
+
   store.update(jobId, { deepStatus: 'pending', deepError: undefined, deepAnalysis: undefined });
-  runDeepPipeline(jobId).catch(() => {
+  runDeepPipeline(jobId, deviceId, ip).catch(() => {
     store.update(jobId, {
       deepStatus: 'failed',
       deepError: { code: 'INTERNAL_ERROR', message: 'Unexpected error during deep analysis.', retryable: true }

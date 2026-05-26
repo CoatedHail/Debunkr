@@ -7,17 +7,23 @@ export interface AnalyzeOptions {
   model: string;
 }
 
+export interface UsageStats {
+  inputTokens: number;
+  outputTokens: number;
+}
+
 export interface AnalyzeOk {
   ok: true;
   contentQuality: number;
   contentReasoning: string;
   biasScale: number;
   counterArgument: string;
+  usage: UsageStats;
 }
 
 export type AnalyzeResult =
   | AnalyzeOk
-  | { ok: false; error: ApiError['error'] };
+  | { ok: false; error: ApiError['error']; usage?: UsageStats };
 
 interface ParsedLlmOutput {
   contentQuality: number;
@@ -29,11 +35,7 @@ interface ParsedLlmOutput {
 function parseAndValidate(text: string): ParsedLlmOutput | null {
   const cleaned = text.trim().replace(/^```(?:json)?\s*|```\s*$/g, '');
   let obj: unknown;
-  try {
-    obj = JSON.parse(cleaned);
-  } catch {
-    return null;
-  }
+  try { obj = JSON.parse(cleaned); } catch { return null; }
   if (typeof obj !== 'object' || obj === null) return null;
   const o = obj as Record<string, unknown>;
   const q = o.contentQuality;
@@ -52,7 +54,11 @@ function parseAndValidate(text: string): ParsedLlmOutput | null {
   };
 }
 
-async function callOnce(client: Anthropic, model: string, userMessage: string): Promise<string> {
+async function callOnce(
+  client: Anthropic,
+  model: string,
+  userMessage: string
+): Promise<{ text: string; usage: UsageStats }> {
   const response = await client.messages.create({
     model,
     max_tokens: 800,
@@ -60,8 +66,12 @@ async function callOnce(client: Anthropic, model: string, userMessage: string): 
     messages: [{ role: 'user', content: userMessage }]
   });
   const block = response.content.find((b) => b.type === 'text');
-  if (!block || block.type !== 'text') return '';
-  return block.text;
+  const text = (block && block.type === 'text') ? block.text : '';
+  const usage: UsageStats = {
+    inputTokens: response.usage?.input_tokens ?? 0,
+    outputTokens: response.usage?.output_tokens ?? 0
+  };
+  return { text, usage };
 }
 
 export async function analyzeContent(
@@ -69,33 +79,30 @@ export async function analyzeContent(
   opts: AnalyzeOptions
 ): Promise<AnalyzeResult> {
   const userMessage = buildUserMessage(articleText);
+  let totalUsage: UsageStats = { inputTokens: 0, outputTokens: 0 };
 
   for (let attempt = 1; attempt <= 2; attempt++) {
-    let text: string;
+    let result: { text: string; usage: UsageStats };
     try {
-      text = await callOnce(opts.client, opts.model, userMessage);
+      result = await callOnce(opts.client, opts.model, userMessage);
     } catch (e) {
       return {
         ok: false,
-        error: {
-          code: 'LLM_UNAVAILABLE',
-          message: 'AI analysis service is unavailable. Try again.',
-          retryable: true
-        }
+        error: { code: 'LLM_UNAVAILABLE', message: 'AI analysis service is unavailable. Try again.', retryable: true },
+        usage: totalUsage
       };
     }
-    const parsed = parseAndValidate(text);
+    totalUsage.inputTokens += result.usage.inputTokens;
+    totalUsage.outputTokens += result.usage.outputTokens;
+    const parsed = parseAndValidate(result.text);
     if (parsed) {
-      return { ok: true, ...parsed };
+      return { ok: true, ...parsed, usage: totalUsage };
     }
   }
 
   return {
     ok: false,
-    error: {
-      code: 'LLM_MALFORMED',
-      message: 'AI returned an invalid response. Please try again.',
-      retryable: true
-    }
+    error: { code: 'LLM_MALFORMED', message: 'AI returned an invalid response. Please try again.', retryable: true },
+    usage: totalUsage
   };
 }

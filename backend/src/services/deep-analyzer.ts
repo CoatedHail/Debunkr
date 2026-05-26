@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ApiError, DeepAnalysis, AgentReport, JudgeRuling, Confidence } from '../types/api.js';
+import type { UsageStats } from './llm-analyzer.js';
 import {
   SKEPTIC_SYSTEM_PROMPT,
   ADVOCATE_SYSTEM_PROMPT,
@@ -14,8 +15,8 @@ export interface DeepOptions {
 }
 
 export type DeepResult =
-  | { ok: true; deepAnalysis: DeepAnalysis }
-  | { ok: false; error: ApiError['error'] };
+  | { ok: true; deepAnalysis: DeepAnalysis; usage: UsageStats }
+  | { ok: false; error: ApiError['error']; usage: UsageStats };
 
 const MODEL_LIMITATION =
   'All three agents (Skeptic, Advocate, Judge) use the same model family (Claude). They share underlying biases. A future update will mix model families for genuine bias reduction.';
@@ -53,7 +54,7 @@ async function callAgent(
   model: string,
   systemPrompt: string,
   userMessage: string
-): Promise<string> {
+): Promise<{ text: string; usage: UsageStats }> {
   const response = await client.messages.create({
     model,
     max_tokens: 500,
@@ -61,8 +62,17 @@ async function callAgent(
     messages: [{ role: 'user', content: userMessage }]
   });
   const block = response.content.find((b) => b.type === 'text');
-  if (!block || block.type !== 'text') return '';
-  return block.text;
+  const text = (block && block.type === 'text') ? block.text : '';
+  const usage: UsageStats = {
+    inputTokens: response.usage?.input_tokens ?? 0,
+    outputTokens: response.usage?.output_tokens ?? 0
+  };
+  return { text, usage };
+}
+
+interface AgentWithUsage {
+  report: AgentReport | null;
+  usage: UsageStats;
 }
 
 async function callAgentWithRetry(
@@ -70,13 +80,16 @@ async function callAgentWithRetry(
   model: string,
   systemPrompt: string,
   userMessage: string
-): Promise<AgentReport | null> {
+): Promise<AgentWithUsage> {
+  let totalUsage: UsageStats = { inputTokens: 0, outputTokens: 0 };
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const text = await callAgent(client, model, systemPrompt, userMessage);
-    const parsed = parseAgent(text);
-    if (parsed) return parsed;
+    const r = await callAgent(client, model, systemPrompt, userMessage);
+    totalUsage.inputTokens += r.usage.inputTokens;
+    totalUsage.outputTokens += r.usage.outputTokens;
+    const parsed = parseAgent(r.text);
+    if (parsed) return { report: parsed, usage: totalUsage };
   }
-  return null;
+  return { report: null, usage: totalUsage };
 }
 
 export async function runDeepAnalysis(
@@ -84,67 +97,59 @@ export async function runDeepAnalysis(
   opts: DeepOptions
 ): Promise<DeepResult> {
   const userMsg = buildAgentUserMessage(articleText);
+  const totalUsage: UsageStats = { inputTokens: 0, outputTokens: 0 };
 
-  let skeptic: AgentReport | null;
+  function addUsage(u: UsageStats): void {
+    totalUsage.inputTokens += u.inputTokens;
+    totalUsage.outputTokens += u.outputTokens;
+  }
+
+  let skepticResult: AgentWithUsage;
   try {
-    skeptic = await callAgentWithRetry(opts.client, opts.model, SKEPTIC_SYSTEM_PROMPT, userMsg);
+    skepticResult = await callAgentWithRetry(opts.client, opts.model, SKEPTIC_SYSTEM_PROMPT, userMsg);
   } catch {
-    return {
-      ok: false,
-      error: { code: 'LLM_UNAVAILABLE', message: 'AI service unavailable during skeptic phase.', retryable: true }
-    };
+    return { ok: false, error: { code: 'LLM_UNAVAILABLE', message: 'AI service unavailable during skeptic phase.', retryable: true }, usage: totalUsage };
   }
-  if (!skeptic) {
-    return {
-      ok: false,
-      error: { code: 'LLM_MALFORMED', message: 'Skeptic agent returned invalid output.', retryable: true }
-    };
+  addUsage(skepticResult.usage);
+  if (!skepticResult.report) {
+    return { ok: false, error: { code: 'LLM_MALFORMED', message: 'Skeptic agent returned invalid output.', retryable: true }, usage: totalUsage };
   }
 
-  let advocate: AgentReport | null;
+  let advocateResult: AgentWithUsage;
   try {
-    advocate = await callAgentWithRetry(opts.client, opts.model, ADVOCATE_SYSTEM_PROMPT, userMsg);
+    advocateResult = await callAgentWithRetry(opts.client, opts.model, ADVOCATE_SYSTEM_PROMPT, userMsg);
   } catch {
-    return {
-      ok: false,
-      error: { code: 'LLM_UNAVAILABLE', message: 'AI service unavailable during advocate phase.', retryable: true }
-    };
+    return { ok: false, error: { code: 'LLM_UNAVAILABLE', message: 'AI service unavailable during advocate phase.', retryable: true }, usage: totalUsage };
   }
-  if (!advocate) {
-    return {
-      ok: false,
-      error: { code: 'LLM_MALFORMED', message: 'Advocate agent returned invalid output.', retryable: true }
-    };
+  addUsage(advocateResult.usage);
+  if (!advocateResult.report) {
+    return { ok: false, error: { code: 'LLM_MALFORMED', message: 'Advocate agent returned invalid output.', retryable: true }, usage: totalUsage };
   }
 
-  const judgeMsg = buildJudgeUserMessage({ articleText, skeptic, advocate });
+  const judgeMsg = buildJudgeUserMessage({ articleText, skeptic: skepticResult.report, advocate: advocateResult.report });
   let judge: JudgeRuling | null = null;
   try {
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const text = await callAgent(opts.client, opts.model, JUDGE_SYSTEM_PROMPT, judgeMsg);
-      judge = parseJudge(text);
+      const r = await callAgent(opts.client, opts.model, JUDGE_SYSTEM_PROMPT, judgeMsg);
+      addUsage(r.usage);
+      judge = parseJudge(r.text);
       if (judge) break;
     }
   } catch {
-    return {
-      ok: false,
-      error: { code: 'LLM_UNAVAILABLE', message: 'AI service unavailable during judge phase.', retryable: true }
-    };
+    return { ok: false, error: { code: 'LLM_UNAVAILABLE', message: 'AI service unavailable during judge phase.', retryable: true }, usage: totalUsage };
   }
   if (!judge) {
-    return {
-      ok: false,
-      error: { code: 'LLM_MALFORMED', message: 'Judge agent returned invalid output.', retryable: true }
-    };
+    return { ok: false, error: { code: 'LLM_MALFORMED', message: 'Judge agent returned invalid output.', retryable: true }, usage: totalUsage };
   }
 
   return {
     ok: true,
     deepAnalysis: {
-      skeptic,
-      advocate,
+      skeptic: skepticResult.report,
+      advocate: advocateResult.report,
       judge,
       modelLimitation: MODEL_LIMITATION
-    }
+    },
+    usage: totalUsage
   };
 }

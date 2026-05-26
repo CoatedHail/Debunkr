@@ -1,6 +1,15 @@
 import { app } from '../../src/server.js';
 import { setTestDeps } from '../../src/routes/check.js';
 import { createJobStore } from '../../src/services/job-store.js';
+import { createRateLimiter } from '../../src/services/rate-limiter.js';
+import { createCache } from '../../src/services/cache.js';
+
+function mockCostTracker() {
+  return {
+    check: async () => ({ exceeded: false, monthlySpendUsd: 0, budgetUsd: 0 }),
+    record: async () => {}
+  };
+}
 
 function mockClient(scoreJson?: string) {
   const text = scoreJson ?? JSON.stringify({
@@ -26,6 +35,9 @@ beforeEach(() => {
   setTestDeps({
     store: createJobStore(),
     client: mockClient() as any,
+    rateLimiter: createRateLimiter(),
+    costTracker: mockCostTracker() as any,
+    cache: createCache(),
     skipSsrfCheck: true
   });
 
@@ -356,5 +368,48 @@ describe('POST /api/check/:jobId/deep', () => {
     expect(final.deepAnalysis.skeptic.reasoning).toContain('STUB');
     expect(final.deepAnalysis.advocate.reasoning).toContain('STUB');
     expect(final.deepAnalysis.judge.confidence).toBe('low');
+  });
+});
+
+describe('Production hardening wiring', () => {
+  it('returns 429 RATE_LIMITED when single-check cap hit', async () => {
+    setTestDeps({
+      store: createJobStore(),
+      client: mockClient() as any,
+      rateLimiter: {
+        consume: () => ({ allowed: false, remaining: 0, retryAfter: 3600 })
+      },
+      skipSsrfCheck: true
+    });
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+    const res = await app.request('/api/check', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/a', deviceId: 'd1' })
+    });
+    expect(res.status).toBe(429);
+    const body = await res.json() as any;
+    expect(body.error.code).toBe('RATE_LIMITED');
+    expect(body.error.retryAfter).toBeGreaterThan(0);
+  });
+
+  it('returns 503 BUDGET_EXCEEDED when monthly cap hit', async () => {
+    setTestDeps({
+      store: createJobStore(),
+      client: mockClient() as any,
+      costTracker: {
+        check: async () => ({ exceeded: true, monthlySpendUsd: 100, budgetUsd: 10 }),
+        record: async () => {}
+      },
+      skipSsrfCheck: true
+    });
+    const res = await app.request('/api/check', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/a', deviceId: 'd1' })
+    });
+    expect(res.status).toBe(503);
+    const body = await res.json() as any;
+    expect(body.error.code).toBe('BUDGET_EXCEEDED');
   });
 });

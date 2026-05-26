@@ -30,6 +30,8 @@ describe('analyzeContent', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.contentQuality).toBe(72);
+    expect(r.usage).toBeDefined();
+    expect(r.usage.inputTokens).toBeGreaterThanOrEqual(0);
     expect(r.biasScale).toBe(-1);
     expect(r.counterArgument).toContain('political camp');
   });

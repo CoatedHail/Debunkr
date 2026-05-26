@@ -42,6 +42,8 @@ describe('runDeepAnalysis', () => {
     expect(r.deepAnalysis.advocate.reasoning).toContain('byline');
     expect(r.deepAnalysis.judge.verdict).toContain('mostly credible');
     expect(r.deepAnalysis.judge.confidence).toBe('medium');
+    expect(r.usage).toBeDefined();
+    expect(r.usage.inputTokens).toBeGreaterThan(0);
     expect(mock.messages.create).toHaveBeenCalledTimes(3);
   });
 
