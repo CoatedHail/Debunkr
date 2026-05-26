@@ -1,0 +1,10 @@
+{"url": "https://www.reuters.com/world/", "expectedOverallRange": [70, 100], "expectedBucket": "mostly-credible-or-better", "notes": "Reuters: IFCN + Wikipedia consensus reliable. Expect high overall."}
+{"url": "https://apnews.com/", "expectedOverallRange": [70, 100], "expectedBucket": "mostly-credible-or-better", "notes": "AP: IFCN + Wikipedia reliable."}
+{"url": "https://www.bbc.com/news", "expectedOverallRange": [70, 100], "expectedBucket": "mostly-credible-or-better", "notes": "BBC: Wikipedia reliable."}
+{"url": "https://www.npr.org/", "expectedOverallRange": [65, 100], "expectedBucket": "mostly-credible-or-better", "notes": "NPR: Wikipedia reliable."}
+{"url": "https://www.propublica.org/", "expectedOverallRange": [65, 100], "expectedBucket": "mostly-credible-or-better", "notes": "ProPublica: Wikipedia reliable."}
+{"url": "https://www.infowars.com/", "expectedOverallRange": [0, 50], "expectedBucket": "mixed-or-worse", "notes": "Infowars: Wikipedia generally unreliable. Expect low overall."}
+{"url": "https://www.naturalnews.com/", "expectedOverallRange": [0, 50], "expectedBucket": "mixed-or-worse", "notes": "Natural News: Wikipedia generally unreliable."}
+{"url": "https://www.dailymail.co.uk/news/", "expectedOverallRange": [20, 65], "expectedBucket": "mixed-or-mostly", "notes": "Daily Mail: Wikipedia generally unreliable but extraction may yield mixed content."}
+{"url": "https://theonion.com/respect-for-friend-drops-after-reading-book-they-recommended/", "expectedOverallRange": [30, 75], "expectedBucket": "any", "notes": "Satire site. Unknown publisher. AI content quality may rate highly (well-written) but we lack satire detection — flag for V2."}
+{"url": "https://www.example.com/", "expectedOverallRange": [0, 100], "expectedBucket": "any", "notes": "RFC example domain — extraction may fail (no real article). Eval mainly verifies pipeline handles odd input."}
