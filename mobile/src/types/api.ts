@@ -10,7 +10,8 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'BUDGET_EXCEEDED'
   | 'UNSUPPORTED_CONTENT_TYPE'
-  | 'INTERNAL_ERROR';
+  | 'INTERNAL_ERROR'
+  | 'JOB_NOT_COMPLETE';
 
 export interface ApiError {
   error: {
@@ -77,6 +78,25 @@ export interface CheapSignalsBreakdown {
   score: number;
 }
 
+export type DeepStatus = 'idle' | 'pending' | 'complete' | 'failed';
+
+export interface AgentReport {
+  reasoning: string;
+  evidence: string[];
+}
+
+export interface JudgeRuling {
+  verdict: string;
+  confidence: Confidence;
+}
+
+export interface DeepAnalysis {
+  skeptic: AgentReport;
+  advocate: AgentReport;
+  judge: JudgeRuling;
+  modelLimitation: string;
+}
+
 export interface JobResult {
   jobId: string;
   status: JobStatus;
@@ -94,6 +114,10 @@ export interface JobResult {
   contentReasoning?: string;
   bias?: BiasEstimate;
   counterArgument?: string;
+
+  deepStatus?: DeepStatus;
+  deepAnalysis?: DeepAnalysis;
+  deepError?: ApiError['error'];
 
   error?: ApiError['error'];
 }
