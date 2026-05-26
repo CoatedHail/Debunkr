@@ -11,7 +11,12 @@ import {
 } from 'react-native';
 import { submitCheck, getJob } from '../api/client';
 import { getDeviceId } from '../lib/device-id';
-import type { JobResult } from '../types/api';
+import type {
+  DatasetVerdict,
+  JobResult,
+  PublisherLookup,
+  ReliabilityTier
+} from '../types/api';
 
 type ScreenState =
   | { kind: 'idle' }
@@ -40,6 +45,63 @@ function scoreLabel(score: number): string {
   if (score >= 40) return 'Mixed';
   if (score >= 20) return 'Questionable';
   return 'Low credibility';
+}
+
+function tierColor(tier: ReliabilityTier): string {
+  switch (tier) {
+    case 'high':    return '#15803d';
+    case 'medium':  return '#b45309';
+    case 'mixed':   return '#b45309';
+    case 'low':     return '#b91c1c';
+    case 'unknown': return '#5f6368';
+  }
+}
+
+function tierLabel(tier: ReliabilityTier): string {
+  switch (tier) {
+    case 'high':    return 'Generally reliable';
+    case 'medium':  return 'Mixed reputation';
+    case 'mixed':   return 'Mixed reputation';
+    case 'low':     return 'Generally unreliable';
+    case 'unknown': return 'Unknown publisher';
+  }
+}
+
+function sourceLabel(source: DatasetVerdict['source']): string {
+  switch (source) {
+    case 'curated-wikipedia': return 'Wikipedia';
+    case 'ifcn':              return 'IFCN';
+  }
+}
+
+function PublisherBlock({ publisher }: { publisher: PublisherLookup }) {
+  return (
+    <View>
+      <Text style={styles.label}>Publisher</Text>
+      <Text style={styles.value}>{publisher.canonicalDomain ?? 'Unknown domain'}</Text>
+      <View style={[styles.inline, { marginTop: 6 }]}>
+        <View style={[styles.tierBadge, { backgroundColor: tierColor(publisher.reliabilityTier) }]}>
+          <Text style={styles.tierBadgeText}>{tierLabel(publisher.reliabilityTier)}</Text>
+        </View>
+      </View>
+
+      {publisher.verdicts.length > 0 ? (
+        <View style={{ marginTop: 8 }}>
+          {publisher.verdicts.map((v, i) => (
+            <View key={i} style={styles.verdictRow}>
+              <Text style={styles.verdictSource}>{sourceLabel(v.source)}</Text>
+              <Text style={styles.verdictText}>{v.verdict}</Text>
+              {v.details ? <Text style={styles.verdictDetails}>{v.details}</Text> : null}
+            </View>
+          ))}
+        </View>
+      ) : (
+        <Text style={[styles.muted, { marginTop: 6 }]}>
+          We don't have this publisher in our list yet. AI content score below is the only signal.
+        </Text>
+      )}
+    </View>
+  );
 }
 
 export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScreenProps) {
@@ -126,14 +188,12 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
           {state.kind === 'polling' && (
             <View>
+              {polling?.publisher ? <PublisherBlock publisher={polling.publisher} /> : null}
               {polling?.article?.title ? (
-                <>
+                <View style={{ marginTop: 12 }}>
                   <Text style={styles.label}>Article</Text>
                   <Text style={styles.value}>{polling.article.title}</Text>
-                  {polling.article.siteName && (
-                    <Text style={styles.muted}>{polling.article.siteName}</Text>
-                  )}
-                </>
+                </View>
               ) : null}
               <View style={[styles.inline, { marginTop: 12 }]}>
                 <ActivityIndicator />
@@ -144,17 +204,16 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
           {state.kind === 'result' && state.job.status === 'complete' && state.job.contentQuality !== undefined && (
             <View>
+              {state.job.publisher && <PublisherBlock publisher={state.job.publisher} />}
+
               {state.job.article?.title && (
-                <>
+                <View style={{ marginTop: 12 }}>
                   <Text style={styles.label}>Article</Text>
                   <Text style={styles.value}>{state.job.article.title}</Text>
-                  {state.job.article.siteName && (
-                    <Text style={styles.muted}>{state.job.article.siteName}</Text>
-                  )}
-                </>
+                </View>
               )}
 
-              <Text style={[styles.label, { marginTop: 16 }]}>Content quality</Text>
+              <Text style={[styles.label, { marginTop: 16 }]}>Content quality (AI)</Text>
               <View style={styles.inline}>
                 <Text style={[styles.score, { color: scoreColor(state.job.contentQuality) }]}>
                   {state.job.contentQuality}
@@ -172,7 +231,8 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
               )}
 
               <Text style={[styles.disclaimer, { marginTop: 16 }]}>
-                AI-generated analysis. May contain errors. Source reputation and combined scoring land in later updates.
+                Publisher tier is from our cited sources. AI content quality may contain errors.
+                Combined weighted scoring lands in the next update.
               </Text>
 
               <View style={styles.linkRow}>
@@ -188,7 +248,8 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
           {state.kind === 'result' && state.job.status === 'failed' && state.job.error && (
             <View>
-              <Text style={styles.errorTitle}>Couldn't analyze this URL</Text>
+              {state.job.publisher && <PublisherBlock publisher={state.job.publisher} />}
+              <Text style={[styles.errorTitle, { marginTop: 12 }]}>Couldn't analyze this URL</Text>
               <Text style={styles.errorMessage}>{state.job.error.message}</Text>
               <Pressable onPress={onReset} style={styles.resetLink}>
                 <Text style={styles.resetText}>Try another URL</Text>
@@ -240,5 +301,25 @@ const styles = StyleSheet.create({
   errorTitle: { color: '#b91c1c', fontWeight: '600', marginBottom: 4 },
   errorMessage: { color: '#1a1a1a' },
   resetLink: { marginTop: 16 },
-  resetText: { color: '#2563eb', fontWeight: '600' }
+  resetText: { color: '#2563eb', fontWeight: '600' },
+
+  // Publisher block
+  tierBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    alignSelf: 'flex-start'
+  },
+  tierBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  verdictRow: {
+    backgroundColor: '#fafaf7',
+    borderColor: '#e6e3dc',
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 10,
+    marginTop: 6
+  },
+  verdictSource: { fontSize: 11, color: '#5f6368', fontWeight: '600', textTransform: 'uppercase', marginBottom: 2 },
+  verdictText: { fontSize: 14, color: '#1a1a1a' },
+  verdictDetails: { fontSize: 12, color: '#5f6368', marginTop: 2 }
 });
