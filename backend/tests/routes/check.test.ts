@@ -290,3 +290,70 @@ describe('Combined scoring', () => {
     expect(final.confidence).toBe('high');
   });
 });
+
+describe('POST /api/check/:jobId/deep', () => {
+  it('returns 404 INTERNAL_ERROR for unknown jobId', async () => {
+    const res = await app.request('/api/check/unknown/deep', { method: 'POST' });
+    expect(res.status).toBe(404);
+    const body = await res.json() as any;
+    expect(body.error.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('returns 409 JOB_NOT_COMPLETE if job is still pending', async () => {
+    // Never advance the pipeline — submit and immediately request deep
+    (globalThis as any).fetch = jest.fn(() => new Promise(() => { /* hang */ }));
+    const submit = await app.request('/api/check', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com/a', deviceId: 'd1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+    const res = await app.request(`/api/check/${jobId}/deep`, { method: 'POST' });
+    expect(res.status).toBe(409);
+    const body = await res.json() as any;
+    expect(body.error.code).toBe('JOB_NOT_COMPLETE');
+  });
+
+  it('runs full deep pipeline against a completed job (stub LLM)', async () => {
+    setTestDeps({
+      store: createJobStore(),
+      client: null  // stub mode
+    });
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+
+    // 1. Submit + wait for complete
+    const submit = await app.request('/api/check', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://www.bbc.co.uk/news/x', deviceId: 'd1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+
+    let initial: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.status === 'complete') { initial = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(initial.status).toBe('complete');
+    expect(initial.deepStatus).toBe('idle');
+
+    // 2. Trigger deep
+    const deepRes = await app.request(`/api/check/${jobId}/deep`, { method: 'POST' });
+    expect(deepRes.status).toBe(202);
+
+    // 3. Poll for deepStatus complete
+    let final: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.deepStatus === 'complete' || body.deepStatus === 'failed') { final = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(final.deepStatus).toBe('complete');
+    expect(final.deepAnalysis.skeptic.reasoning).toContain('STUB');
+    expect(final.deepAnalysis.advocate.reasoning).toContain('STUB');
+    expect(final.deepAnalysis.judge.confidence).toBe('low');
+  });
+});
