@@ -23,7 +23,7 @@ enough for Readability to consider it actual content.</p>
 describe('extractArticle', () => {
   it('extracts title and text from a valid HTML article', async () => {
     const fetchMock = makeFetchMock(SAMPLE_HTML);
-    const result = await extractArticle('https://example.com/a', { fetchImpl: fetchMock });
+    const result = await extractArticle('https://example.com/a', { fetchImpl: fetchMock, skipSsrfCheck: true });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.article.title).toBe('Sample Article');
@@ -32,7 +32,7 @@ describe('extractArticle', () => {
 
   it('returns EXTRACTION_FAILED on non-200 response', async () => {
     const fetchMock = jest.fn(async () => new Response('not found', { status: 404 }));
-    const result = await extractArticle('https://example.com/x', { fetchImpl: fetchMock as any });
+    const result = await extractArticle('https://example.com/x', { fetchImpl: fetchMock as any, skipSsrfCheck: true });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe('EXTRACTION_FAILED');
@@ -43,7 +43,7 @@ describe('extractArticle', () => {
       status: 200,
       headers: { 'content-type': 'image/png' }
     }));
-    const result = await extractArticle('https://example.com/img', { fetchImpl: fetchMock as any });
+    const result = await extractArticle('https://example.com/img', { fetchImpl: fetchMock as any, skipSsrfCheck: true });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe('UNSUPPORTED_CONTENT_TYPE');
@@ -51,7 +51,7 @@ describe('extractArticle', () => {
 
   it('returns EXTRACTION_FAILED when fetch throws (network error)', async () => {
     const fetchMock = jest.fn(async () => { throw new TypeError('network failed'); });
-    const result = await extractArticle('https://example.com/dead', { fetchImpl: fetchMock as any });
+    const result = await extractArticle('https://example.com/dead', { fetchImpl: fetchMock as any, skipSsrfCheck: true });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe('EXTRACTION_FAILED');
@@ -60,9 +60,32 @@ describe('extractArticle', () => {
   it('returns EXTRACTION_FAILED when Readability returns null', async () => {
     const trivialHtml = '<html><body><p>too short</p></body></html>';
     const fetchMock = makeFetchMock(trivialHtml);
-    const result = await extractArticle('https://example.com/short', { fetchImpl: fetchMock });
+    const result = await extractArticle('https://example.com/short', { fetchImpl: fetchMock, skipSsrfCheck: true });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe('EXTRACTION_FAILED');
+  });
+});
+
+describe('extractArticle SSRF guard', () => {
+  it('returns URL_BLOCKED for localhost without skipSsrfCheck', async () => {
+    const result = await extractArticle('http://localhost/admin');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('URL_BLOCKED');
+  });
+
+  it('returns URL_BLOCKED for 169.254.169.254 (AWS metadata)', async () => {
+    const result = await extractArticle('http://169.254.169.254/latest/meta-data');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('URL_BLOCKED');
+  });
+
+  it('returns URL_BLOCKED for RFC1918 IP', async () => {
+    const result = await extractArticle('http://10.0.0.1/');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('URL_BLOCKED');
   });
 });

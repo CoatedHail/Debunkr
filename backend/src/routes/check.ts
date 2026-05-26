@@ -24,6 +24,7 @@ let lookup: DatasetLookup = createDatasetLookup();
 let client: Anthropic | null = hasRealLlm()
   ? new Anthropic({ apiKey: env.anthropicApiKey })
   : null;
+let skipSsrfCheck = false;
 
 // Track article text per jobId so the deep route can re-analyze without
 // re-fetching. In M6 this moves to Postgres alongside the job store.
@@ -33,10 +34,12 @@ export function setTestDeps(deps: {
   store?: JobStore;
   client?: Anthropic | null;
   lookup?: DatasetLookup;
+  skipSsrfCheck?: boolean;
 }): void {
   if (deps.store) store = deps.store;
   if (deps.client !== undefined) client = deps.client;
   if (deps.lookup) lookup = deps.lookup;
+  if (deps.skipSsrfCheck !== undefined) skipSsrfCheck = deps.skipSsrfCheck;
   // Always clear inter-job text on test override
   articleTextByJob.clear();
 }
@@ -74,7 +77,7 @@ function lookupPublisher(url: string): PublisherLookup {
 async function runPipeline(jobId: string, url: string): Promise<void> {
   const publisher = lookupPublisher(url);
 
-  const extraction = await extractArticle(url);
+  const extraction = await extractArticle(url, { skipSsrfCheck });
   if (!extraction.ok) {
     store.update(jobId, { status: 'failed', publisher, error: extraction.error });
     return;

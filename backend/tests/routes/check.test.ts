@@ -25,7 +25,8 @@ const SAMPLE_HTML = `<!doctype html><html><head><title>Reuters Test</title></hea
 beforeEach(() => {
   setTestDeps({
     store: createJobStore(),
-    client: mockClient() as any
+    client: mockClient() as any,
+    skipSsrfCheck: true
   });
 
   (globalThis as any).fetch = jest.fn(async () =>
