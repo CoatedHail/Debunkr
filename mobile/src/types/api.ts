@@ -54,12 +54,46 @@ export interface PublisherLookup {
   verdicts: DatasetVerdict[];
 }
 
+export type OverallBucket =
+  | 'highly-credible'
+  | 'mostly-credible'
+  | 'mixed'
+  | 'questionable'
+  | 'low';
+
+export type Confidence = 'high' | 'medium' | 'low';
+
+export interface BiasEstimate {
+  scale: number;
+  source: 'llm' | 'allsides';
+}
+
+export interface CheapSignalsBreakdown {
+  https: boolean;
+  hasByline: boolean;
+  hasSiteName: boolean;
+  articleLength: number;
+  longEnoughBonus: boolean;
+  score: number;
+}
+
 export interface JobResult {
   jobId: string;
   status: JobStatus;
   article?: ArticleMetadata;
   publisher?: PublisherLookup;
+
+  overall?: number;
+  bucket?: OverallBucket;
+  confidence?: Confidence;
+
+  sourceRep?: number;
+  sourceRepFrom?: 'curated-wikipedia' | 'cheap-signals';
+  cheapSignals?: CheapSignalsBreakdown;
   contentQuality?: number;
   contentReasoning?: string;
+  bias?: BiasEstimate;
+  counterArgument?: string;
+
   error?: ApiError['error'];
 }
