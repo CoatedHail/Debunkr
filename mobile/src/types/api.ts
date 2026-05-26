@@ -39,10 +39,26 @@ export interface ArticleMetadata {
   siteName?: string;
 }
 
+export type ReliabilityTier = 'high' | 'medium' | 'mixed' | 'low' | 'unknown';
+
+export interface DatasetVerdict {
+  source: 'curated-wikipedia' | 'ifcn';
+  verdict: string;
+  details?: string;
+  link?: string;
+}
+
+export interface PublisherLookup {
+  canonicalDomain: string | null;
+  reliabilityTier: ReliabilityTier;
+  verdicts: DatasetVerdict[];
+}
+
 export interface JobResult {
   jobId: string;
   status: JobStatus;
   article?: ArticleMetadata;
+  publisher?: PublisherLookup;
   contentQuality?: number;
   contentReasoning?: string;
   error?: ApiError['error'];
