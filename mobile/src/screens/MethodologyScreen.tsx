@@ -3,8 +3,7 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Text,
-  View
+  Text
 } from 'react-native';
 
 export interface MethodologyScreenProps {
@@ -24,27 +23,30 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
 
         <Text style={styles.h2}>What we do</Text>
         <Text style={styles.p}>
-          When you paste a URL, our backend downloads the article and asks
-          Claude (an AI model from Anthropic) to evaluate the writing for
-          sourcing, tone, logic, and hedging. The score is an opinion based
-          on the words in the article. It is not a statement of fact about
-          the publisher.
+          When you paste a URL, our backend (1) identifies the publisher
+          from the domain, (2) looks the publisher up in a curated reliability
+          list and the IFCN signatory list, then (3) downloads the article
+          and asks Claude (an AI model from Anthropic) to evaluate the writing
+          for sourcing, tone, logic, and hedging. You see both the publisher
+          tier and the article-level AI score, with their sources attributed.
         </Text>
 
-        <Text style={styles.h2}>What we do not do yet (V1)</Text>
+        <Text style={styles.h2}>Sources we use today</Text>
         <Text style={styles.p}>
-          We do not yet check publisher reputation against rating databases,
-          compute combined source/content/bias scores, run multi-perspective
-          AI debate, or detect publication updates. Those land in later
-          updates (M3–M6).
+          • Curated reliability list — ~30 publishers, hand-picked from
+          Wikipedia's Perennial Sources editor consensus. We commit the list
+          to the codebase so you can see exactly what we have.{'\n'}
+          • IFCN signatory list — fact-checking organizations certified by
+          the International Fact-Checking Network at Poynter.{'\n'}
+          • Article content — sent to Claude (Haiku 4.5 by default) for
+          writing-quality analysis.
         </Text>
 
-        <Text style={styles.h2}>Sources we plan to use (M3+)</Text>
+        <Text style={styles.h2}>What we do not do yet</Text>
         <Text style={styles.p}>
-          AllSides (if license permits), a hand-curated reliability list
-          derived from Wikipedia's Perennial Sources, and the IFCN signatory
-          list. All ratings will be attributed to their sources, not
-          presented as our opinion.
+          We do not yet compute a single combined score, surface a
+          confidence indicator, show the strongest counter-argument, or run
+          multi-perspective AI debate. Those land in M4 and M5.
         </Text>
 
         <Text style={styles.h2}>Feedback</Text>
