@@ -10,7 +10,8 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'BUDGET_EXCEEDED'
   | 'UNSUPPORTED_CONTENT_TYPE'
-  | 'INTERNAL_ERROR';
+  | 'INTERNAL_ERROR'
+  | 'JOB_NOT_COMPLETE';
 
 export interface ApiError {
   error: {
@@ -55,16 +56,14 @@ export interface PublisherLookup {
 }
 
 export type OverallBucket =
-  | 'highly-credible' // 80-100
-  | 'mostly-credible' // 60-79
-  | 'mixed'           // 40-59
-  | 'questionable'    // 20-39
-  | 'low';            // 0-19
+  | 'highly-credible'
+  | 'mostly-credible'
+  | 'mixed'
+  | 'questionable'
+  | 'low';
 
 export type Confidence = 'high' | 'medium' | 'low';
 
-// -5 (far left) ... 0 (center) ... +5 (far right)
-// `source` records where the estimate came from. 'llm' implies low confidence.
 export interface BiasEstimate {
   scale: number;
   source: 'llm' | 'allsides';
@@ -74,35 +73,58 @@ export interface CheapSignalsBreakdown {
   https: boolean;
   hasByline: boolean;
   hasSiteName: boolean;
-  articleLength: number;          // characters
-  longEnoughBonus: boolean;       // > 2000 chars
-  score: number;                  // 30-60
+  articleLength: number;
+  longEnoughBonus: boolean;
+  score: number;
 }
 
-// Fields populate as work progresses:
-//   pending  → only jobId, status
-//   partial  → + article metadata + publisher lookup
-//   complete → + overall + bucket + confidence + sourceRep + contentQuality + bias + counterArgument
-//   failed   → + error (publisher may still be present)
+// Deep Analysis (M5) — opt-in multi-agent debate
+export type DeepStatus = 'idle' | 'pending' | 'complete' | 'failed';
+
+export interface AgentReport {
+  /** 1-3 short sentences, plain English */
+  reasoning: string;
+  /** 0-3 specific evidence bullets pulled from the article */
+  evidence: string[];
+}
+
+export interface JudgeRuling {
+  /** 1-3 sentence verdict */
+  verdict: string;
+  /** Adjusted confidence (post-debate): high/medium/low */
+  confidence: Confidence;
+}
+
+export interface DeepAnalysis {
+  skeptic: AgentReport;
+  advocate: AgentReport;
+  judge: JudgeRuling;
+  /** UI shows this verbatim under the deep-analysis section. */
+  modelLimitation: string;
+}
+
 export interface JobResult {
   jobId: string;
   status: JobStatus;
   article?: ArticleMetadata;
   publisher?: PublisherLookup;
 
-  // Combined output (M4)
-  overall?: number;               // 0-100
+  overall?: number;
   bucket?: OverallBucket;
   confidence?: Confidence;
 
-  // Sub-scores (M4)
-  sourceRep?: number;             // 0-100 — from publisher tier OR cheap signals
+  sourceRep?: number;
   sourceRepFrom?: 'curated-wikipedia' | 'cheap-signals';
-  cheapSignals?: CheapSignalsBreakdown;  // present when sourceRepFrom='cheap-signals'
-  contentQuality?: number;        // 0-100 — from LLM
+  cheapSignals?: CheapSignalsBreakdown;
+  contentQuality?: number;
   contentReasoning?: string;
   bias?: BiasEstimate;
   counterArgument?: string;
+
+  // Deep Analysis (M5)
+  deepStatus?: DeepStatus;
+  deepAnalysis?: DeepAnalysis;
+  deepError?: ApiError['error'];
 
   error?: ApiError['error'];
 }
