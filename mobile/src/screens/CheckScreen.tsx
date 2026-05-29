@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { submitCheck, getJob, startDeep, submitFeedback } from '../api/client';
 import { getDeviceId } from '../lib/device-id';
+import { EvidenceCard } from '../components/EvidenceCard';
 import type {
   AgentReport,
   Confidence,
@@ -137,6 +138,8 @@ function DeepAnalysisBlock({ deep }: { deep: DeepAnalysis }) {
           </Text>
         </View>
       </View>
+
+      {deep.evidence && <EvidenceCard evidence={deep.evidence} />}
 
       <AgentCard label="SKEPTIC" color="#b91c1c" report={deep.skeptic}
                  expanded={skExpanded} onToggle={() => setSkExpanded(!skExpanded)} />
