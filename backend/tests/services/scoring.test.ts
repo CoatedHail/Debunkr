@@ -3,8 +3,10 @@ import {
   biasAdjustment,
   computeOverall,
   bucketLabel,
-  deriveConfidence
+  deriveConfidence,
+  applyEvidenceDelta
 } from '../../src/services/scoring.js';
+import type { EvidenceResult } from '../../src/services/evidence-aggregator.js';
 
 describe('sourceRepFromTier', () => {
   it('maps high → 90', () => expect(sourceRepFromTier('high')).toBe(90));
@@ -79,5 +81,55 @@ describe('deriveConfidence', () => {
   });
   it('low when no datasets AND no extraction', () => {
     expect(deriveConfidence({ datasetCount: 0, extractionOk: false })).toBe('low');
+  });
+});
+
+describe('applyEvidenceDelta', () => {
+  function ev(scoreDelta: any): EvidenceResult {
+    return {
+      verdict: 'mixed',
+      confidence: 'medium',
+      citations: [],
+      scoreDelta,
+      reasoning: 'test'
+    };
+  }
+
+  it('returns overall unchanged when evidence is undefined', () => {
+    expect(applyEvidenceDelta(50, undefined)).toBe(50);
+  });
+
+  it('returns overall unchanged when scoreDelta is 0', () => {
+    expect(applyEvidenceDelta(50, ev(0))).toBe(50);
+  });
+
+  it('applies negative delta: 50 + (-30) → 20', () => {
+    expect(applyEvidenceDelta(50, ev(-30))).toBe(20);
+  });
+
+  it('clamps high: 90 + 10 → 95 (not 100)', () => {
+    expect(applyEvidenceDelta(90, ev(10))).toBe(95);
+  });
+
+  it('clamps low: 10 + (-30) → 5 (not -20)', () => {
+    expect(applyEvidenceDelta(10, ev(-30))).toBe(5);
+  });
+
+  it('returns overall unchanged when scoreDelta is NaN', () => {
+    expect(applyEvidenceDelta(50, ev(NaN))).toBe(50);
+  });
+
+  it('returns overall unchanged when scoreDelta is non-numeric', () => {
+    expect(applyEvidenceDelta(50, ev('big' as any))).toBe(50);
+  });
+
+  it('returns overall unchanged when scoreDelta is Infinity', () => {
+    expect(applyEvidenceDelta(50, ev(Infinity))).toBe(50);
+  });
+
+  it('rounds result to integer', () => {
+    // 50.4 + 0.3 = 50.7 → 51 (overall arg is integer but delta could be float)
+    expect(applyEvidenceDelta(50, ev(0.7))).toBe(51);
+    expect(applyEvidenceDelta(50, ev(0.4))).toBe(50);
   });
 });

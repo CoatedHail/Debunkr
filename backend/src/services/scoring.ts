@@ -3,6 +3,7 @@ import type {
   OverallBucket,
   ReliabilityTier
 } from '../types/api.js';
+import type { EvidenceResult } from './evidence-aggregator.js';
 
 const TIER_TO_SCORE: Record<Exclude<ReliabilityTier, 'unknown'>, number> = {
   high: 90,
@@ -67,4 +68,22 @@ export function deriveConfidence(inputs: ConfidenceInputs): Confidence {
   if (inputs.datasetCount === 0) return 'low';
   if (inputs.datasetCount >= 2 && inputs.extractionOk) return 'high';
   return 'medium';
+}
+
+/**
+ * M8: shift `overall` by the fact-check evidence's scoreDelta.
+ *
+ * Result is clamped to [5, 95] — keep edges away from 0/100 to preserve
+ * room for honest extremes. Rounded to integer. If evidence is missing or
+ * its delta is non-numeric / NaN, returns `overall` unchanged.
+ */
+export function applyEvidenceDelta(
+  overall: number,
+  evidence?: EvidenceResult
+): number {
+  if (!evidence) return overall;
+  const delta = evidence.scoreDelta;
+  if (typeof delta !== 'number' || !Number.isFinite(delta)) return overall;
+  const adjusted = overall + delta;
+  return Math.max(5, Math.min(95, Math.round(adjusted)));
 }

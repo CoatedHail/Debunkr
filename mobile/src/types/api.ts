@@ -90,11 +90,32 @@ export interface JudgeRuling {
   confidence: Confidence;
 }
 
+// M8: external-evidence fact-check result types (mirror of backend EvidenceResult).
+export type EvidenceVerdict = 'corroborated' | 'contradicted' | 'uncorroborated' | 'mixed';
+export type CitationSupport = 'agrees' | 'contradicts' | 'context';
+
+export interface EvidenceCitation {
+  source: string;
+  url: string;
+  snippet: string;
+  supports: CitationSupport;
+}
+
+export interface EvidenceResult {
+  verdict: EvidenceVerdict;
+  confidence: Confidence;
+  citations: EvidenceCitation[];
+  scoreDelta: number;
+  reasoning: string;
+}
+
 export interface DeepAnalysis {
   skeptic: AgentReport;
   advocate: AgentReport;
   judge: JudgeRuling;
   modelLimitation: string;
+  /** M8: external-evidence fact-check result, when available. */
+  evidence?: EvidenceResult;
 }
 
 export interface JobResult {

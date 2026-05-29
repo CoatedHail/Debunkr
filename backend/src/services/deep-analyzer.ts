@@ -8,14 +8,28 @@ import {
   buildAgentUserMessage,
   buildJudgeUserMessage
 } from '../prompts/deep-analysis.js';
+import {
+  runFactCheck as defaultRunFactCheck,
+  type FactCheckUsage,
+  type FactCheckRunResult
+} from './fact-checker.js';
+import type { EvidenceResult } from './evidence-aggregator.js';
 
 export interface DeepOptions {
   client: Anthropic;
   model: string;
+  /** DI hook for M8 fact-check pipeline; defaults to real runFactCheck. */
+  runFactCheckFn?: (articleText: string) => Promise<FactCheckRunResult>;
 }
 
 export type DeepResult =
-  | { ok: true; deepAnalysis: DeepAnalysis; usage: UsageStats }
+  | {
+      ok: true;
+      deepAnalysis: DeepAnalysis;
+      usage: UsageStats;
+      evidence?: EvidenceResult;
+      factCheckUsage?: FactCheckUsage;
+    }
   | { ok: false; error: ApiError['error']; usage: UsageStats };
 
 const MODEL_LIMITATION =
@@ -104,29 +118,58 @@ export async function runDeepAnalysis(
     totalUsage.outputTokens += u.outputTokens;
   }
 
-  let skepticResult: AgentWithUsage;
-  try {
-    skepticResult = await callAgentWithRetry(opts.client, opts.model, SKEPTIC_SYSTEM_PROMPT, userMsg);
-  } catch {
+  const runFactCheckFn = opts.runFactCheckFn ?? defaultRunFactCheck;
+
+  // Run Skeptic + Advocate + fact-check in parallel — Judge waits for all three.
+  // Use allSettled so a transient skeptic/advocate failure produces a clean
+  // structured error rather than a rejection that takes the fact-checker down.
+  const factCheckPromise: Promise<FactCheckRunResult | null> = (async () => {
+    try {
+      return await runFactCheckFn(articleText);
+    } catch {
+      return null;
+    }
+  })();
+
+  const [skepticSettled, advocateSettled, factCheckOutcome] = await Promise.all([
+    callAgentWithRetry(opts.client, opts.model, SKEPTIC_SYSTEM_PROMPT, userMsg).then(
+      (r) => ({ ok: true as const, value: r }),
+      (e: unknown) => ({ ok: false as const, error: e })
+    ),
+    callAgentWithRetry(opts.client, opts.model, ADVOCATE_SYSTEM_PROMPT, userMsg).then(
+      (r) => ({ ok: true as const, value: r }),
+      (e: unknown) => ({ ok: false as const, error: e })
+    ),
+    factCheckPromise
+  ]);
+
+  if (!skepticSettled.ok) {
     return { ok: false, error: { code: 'LLM_UNAVAILABLE', message: 'AI service unavailable during skeptic phase.', retryable: true }, usage: totalUsage };
   }
+  const skepticResult = skepticSettled.value;
   addUsage(skepticResult.usage);
   if (!skepticResult.report) {
     return { ok: false, error: { code: 'LLM_MALFORMED', message: 'Skeptic agent returned invalid output.', retryable: true }, usage: totalUsage };
   }
 
-  let advocateResult: AgentWithUsage;
-  try {
-    advocateResult = await callAgentWithRetry(opts.client, opts.model, ADVOCATE_SYSTEM_PROMPT, userMsg);
-  } catch {
+  if (!advocateSettled.ok) {
     return { ok: false, error: { code: 'LLM_UNAVAILABLE', message: 'AI service unavailable during advocate phase.', retryable: true }, usage: totalUsage };
   }
+  const advocateResult = advocateSettled.value;
   addUsage(advocateResult.usage);
   if (!advocateResult.report) {
     return { ok: false, error: { code: 'LLM_MALFORMED', message: 'Advocate agent returned invalid output.', retryable: true }, usage: totalUsage };
   }
 
-  const judgeMsg = buildJudgeUserMessage({ articleText, skeptic: skepticResult.report, advocate: advocateResult.report });
+  const evidence: EvidenceResult | undefined = factCheckOutcome?.evidence;
+  const factCheckUsage: FactCheckUsage | undefined = factCheckOutcome?.usage;
+
+  const judgeMsg = buildJudgeUserMessage({
+    articleText,
+    skeptic: skepticResult.report,
+    advocate: advocateResult.report,
+    evidence
+  });
   let judge: JudgeRuling | null = null;
   try {
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -148,8 +191,11 @@ export async function runDeepAnalysis(
       skeptic: skepticResult.report,
       advocate: advocateResult.report,
       judge,
-      modelLimitation: MODEL_LIMITATION
+      modelLimitation: MODEL_LIMITATION,
+      evidence
     },
-    usage: totalUsage
+    usage: totalUsage,
+    evidence,
+    factCheckUsage
   };
 }
