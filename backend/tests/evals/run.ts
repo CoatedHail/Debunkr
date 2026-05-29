@@ -6,7 +6,11 @@
  *  1. POST /api/check via the live backend
  *  2. Poll until status='complete' or 'failed'
  *  3. Compare overall + bucket to expectedOverallRange + expectedBucket
- *  4. Report pass/fail per row + summary
+ *  4. If the fixture has evidence expectations (expectedVerdict or
+ *     expectedScoreDeltaRange), POST /api/check/:jobId/deep, poll
+ *     deepStatus until 'complete' or 'failed', then assert
+ *     deepAnalysis.evidence.verdict / .scoreDelta.
+ *  5. Report pass/fail per row + summary
  *
  * Backend MUST be running locally on http://localhost:4000 with a real
  * ANTHROPIC_API_KEY (no STUB mode). Failing URL extractions don't fail
@@ -14,15 +18,30 @@
  * range check.
  *
  * Burns API credit. ~10 fixtures × ~$0.004 = ~$0.04 per run with Haiku.
+ * Deep analysis fixtures add ~$0.01-0.02 each.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+
+type Verdict = 'corroborated' | 'contradicted' | 'uncorroborated' | 'mixed';
 
 interface Fixture {
   url: string;
   expectedOverallRange: [number, number];
   expectedBucket: string;
   notes: string;
+  // M8 additions — optional, only set on fact-check fixtures.
+  expectedVerdict?: Verdict;
+  expectedScoreDeltaRange?: [number, number];
+}
+
+interface EvidenceShape {
+  verdict?: Verdict;
+  scoreDelta?: number;
+}
+
+interface DeepAnalysisShape {
+  evidence?: EvidenceShape;
 }
 
 interface CheckJob {
@@ -32,6 +51,9 @@ interface CheckJob {
   bucket?: string;
   publisher?: { reliabilityTier?: string };
   error?: { code: string; message: string };
+  deepStatus?: 'idle' | 'pending' | 'complete' | 'failed';
+  deepAnalysis?: DeepAnalysisShape;
+  deepError?: { code: string; message: string };
 }
 
 const BACKEND_URL = process.env.EVAL_BACKEND_URL ?? 'http://localhost:4000';
@@ -49,11 +71,28 @@ async function pollUntilDone(jobId: string, timeoutMs = 60_000): Promise<CheckJo
   throw new Error(`Timed out polling jobId ${jobId}`);
 }
 
+async function pollDeepUntilDone(jobId: string, timeoutMs = 120_000): Promise<CheckJob> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const r = await fetch(`${BACKEND_URL}/api/check/${jobId}`);
+    if (!r.ok) throw new Error(`GET /api/check/${jobId} → HTTP ${r.status}`);
+    const body = await r.json() as CheckJob;
+    if (body.deepStatus === 'complete' || body.deepStatus === 'failed') return body;
+    await new Promise((res) => setTimeout(res, 1_500));
+  }
+  throw new Error(`Timed out polling deep status for jobId ${jobId}`);
+}
+
+function fixtureWantsDeep(fixture: Fixture): boolean {
+  return fixture.expectedVerdict !== undefined || fixture.expectedScoreDeltaRange !== undefined;
+}
+
 async function evalOne(fixture: Fixture): Promise<{ url: string; pass: boolean; reason: string }> {
+  const deviceId = `eval-${Date.now()}`;
   const r = await fetch(`${BACKEND_URL}/api/check`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ url: fixture.url, deviceId: `eval-${Date.now()}` })
+    body: JSON.stringify({ url: fixture.url, deviceId })
   });
   if (!r.ok) {
     return { url: fixture.url, pass: false, reason: `submit failed: HTTP ${r.status}` };
@@ -72,20 +111,66 @@ async function evalOne(fixture: Fixture): Promise<{ url: string; pass: boolean; 
     return { url: fixture.url, pass: false, reason: 'no overall score' };
   }
 
+  const failures: string[] = [];
+
   const [min, max] = fixture.expectedOverallRange;
-  const inRange = job.overall >= min && job.overall <= max;
-  if (!inRange) {
-    return {
-      url: fixture.url,
-      pass: false,
-      reason: `overall ${job.overall} outside [${min}, ${max}]`
-    };
+  if (!(job.overall >= min && job.overall <= max)) {
+    failures.push(`overall ${job.overall} outside [${min}, ${max}]`);
+  }
+
+  // M8: deep / evidence assertions (only if fixture opts in)
+  let deepSummary = '';
+  if (fixtureWantsDeep(fixture)) {
+    const dr = await fetch(`${BACKEND_URL}/api/check/${jobId}/deep`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId })
+    });
+    if (!dr.ok && dr.status !== 202) {
+      failures.push(`deep submit failed: HTTP ${dr.status}`);
+    } else {
+      try {
+        const deepJob = await pollDeepUntilDone(jobId);
+        if (deepJob.deepStatus === 'failed') {
+          failures.push(`deep-failed: ${deepJob.deepError?.code ?? 'unknown'}`);
+        } else {
+          const evidence = deepJob.deepAnalysis?.evidence;
+          if (!evidence) {
+            failures.push('no evidence in deepAnalysis');
+          } else {
+            if (
+              fixture.expectedVerdict !== undefined &&
+              evidence.verdict !== fixture.expectedVerdict
+            ) {
+              failures.push(
+                `verdict '${evidence.verdict ?? 'undefined'}' !== expected '${fixture.expectedVerdict}'`
+              );
+            }
+            if (fixture.expectedScoreDeltaRange !== undefined) {
+              const [lo, hi] = fixture.expectedScoreDeltaRange;
+              const sd = evidence.scoreDelta;
+              if (typeof sd !== 'number' || sd < lo || sd > hi) {
+                failures.push(`scoreDelta ${sd} outside [${lo}, ${hi}]`);
+              }
+            }
+            deepSummary = ` verdict=${evidence.verdict} scoreDelta=${evidence.scoreDelta}`;
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        failures.push(`deep poll error: ${msg}`);
+      }
+    }
+  }
+
+  if (failures.length > 0) {
+    return { url: fixture.url, pass: false, reason: failures.join('; ') };
   }
 
   return {
     url: fixture.url,
     pass: true,
-    reason: `overall=${job.overall} bucket=${job.bucket} publisher=${job.publisher?.reliabilityTier}`
+    reason: `overall=${job.overall} bucket=${job.bucket} publisher=${job.publisher?.reliabilityTier}${deepSummary}`
   };
 }
 
