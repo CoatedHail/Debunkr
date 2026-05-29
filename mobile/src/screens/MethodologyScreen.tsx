@@ -64,6 +64,27 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
           update will mix model families for genuine bias reduction.
         </Text>
 
+        <Text style={styles.h2}>How we fact-check claims (Deep Analysis only)</Text>
+        <Text style={styles.p}>
+          During Deep Analysis we also run a five-stage fact-check pipeline:
+        </Text>
+        <Text style={styles.p}>
+          1. An LLM extracts up to 3 verifiable factual claims from the
+          article (numbers, named events, quotes — not opinions).{'\n'}
+          2. We query the Google Fact Check Tools API, which aggregates
+          fact-checks from PolitiFact, Snopes, AFP Fact Check, Reuters
+          Fact Check, and dozens of other IFCN-signatory outlets.{'\n'}
+          3. We search the open web via Brave Search and keep only
+          results from a hand-curated list of ~30 Tier-1 publishers
+          (Reuters, AP, BBC, NYT, etc.) — everything else is discarded.{'\n'}
+          4. Named entities (people, organizations, events) are checked
+          against Wikipedia to catch fabricated names.{'\n'}
+          5. A second LLM call synthesizes all the evidence into a
+          per-claim verdict (corroborated / contradicted / uncorroborated
+          / mixed) and adjusts the article's overall score by up to ±30
+          points.
+        </Text>
+
         <Text style={styles.h2}>Confidence</Text>
         <Text style={styles.p}>
           • High — publisher in 2+ datasets AND article successfully read.{'\n'}
