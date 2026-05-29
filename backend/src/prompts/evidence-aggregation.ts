@@ -1,4 +1,4 @@
-import type { Claim } from '../services/claim-extractor.js';
+import type { Claim } from './claim-extraction.js';
 import type { FactCheckResult } from '../services/fact-check-api.js';
 import type { SearchHit } from '../services/web-search.js';
 import type { EntityCheck } from '../services/wikipedia-check.js';
