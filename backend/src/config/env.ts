@@ -14,7 +14,9 @@ export const env = {
   // Monthly budget in USD. 0 = disabled (no budget cap enforced).
   monthlyBudgetUsd: Number(process.env.MONTHLY_BUDGET_USD ?? '0'),
   // Optional: empty string treated as missing. Fact-check branch is disabled when absent.
-  googleFactCheckApiKey: (process.env.GOOGLE_FACT_CHECK_API_KEY ?? '').trim()
+  googleFactCheckApiKey: (process.env.GOOGLE_FACT_CHECK_API_KEY ?? '').trim(),
+  // Optional: empty string treated as missing. Web-search branch is disabled when absent.
+  braveSearchApiKey: (process.env.BRAVE_SEARCH_API_KEY ?? '').trim()
 };
 
 export function hasRealLlm(): boolean {
@@ -27,4 +29,12 @@ export function getGoogleFactCheckApiKey(): string {
 
 export function hasGoogleFactCheckApiKey(): boolean {
   return env.googleFactCheckApiKey.length > 0;
+}
+
+export function getBraveSearchApiKey(): string {
+  return env.braveSearchApiKey;
+}
+
+export function hasBraveSearchApiKey(): boolean {
+  return env.braveSearchApiKey.length > 0;
 }
