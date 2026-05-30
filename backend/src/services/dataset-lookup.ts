@@ -32,7 +32,7 @@ function parseCsv(text: string): Record<string, string>[] {
 }
 
 interface ReliabilityRow {
-  tier: ReliabilityTier;
+  tier: Exclude<ReliabilityTier, 'unknown'>;
   wikipediaSection: string;
 }
 
@@ -40,12 +40,13 @@ function loadCurated(): Map<string, ReliabilityRow> {
   const text = readFileSync(path.join(DATA_DIR, 'curated-reliability.csv'), 'utf-8');
   const rows = parseCsv(text);
   const map = new Map<string, ReliabilityRow>();
+  const VALID_TIERS: ReadonlyArray<Exclude<ReliabilityTier, 'unknown'>> = ['high', 'medium', 'mixed', 'low'];
   for (const row of rows) {
     const domain = row.domain?.toLowerCase();
     const tier = row.tier as ReliabilityTier;
     if (!domain || !tier) continue;
-    if (!['high', 'medium', 'mixed', 'low'].includes(tier)) continue;
-    map.set(domain, { tier, wikipediaSection: row.wikipedia_section ?? '' });
+    if (!VALID_TIERS.includes(tier as Exclude<ReliabilityTier, 'unknown'>)) continue;
+    map.set(domain, { tier: tier as Exclude<ReliabilityTier, 'unknown'>, wikipediaSection: row.wikipedia_section ?? '' });
   }
   return map;
 }
