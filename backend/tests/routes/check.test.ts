@@ -371,6 +371,182 @@ describe('POST /api/check/:jobId/deep', () => {
   });
 });
 
+describe('POST /api/check/:jobId/deep — M8 fact-check integration', () => {
+  function deepMockClient() {
+    // Returns valid skeptic/advocate/judge JSON in sequence.
+    // Need to also support a base /check call producing content-analysis JSON.
+    const responses = [
+      // First: the /check pipeline content analysis
+      JSON.stringify({
+        contentQuality: 80,
+        contentReasoning: 'Well-sourced.',
+        biasScale: 0,
+        counterArgument: 'Counter test.'
+      }),
+      // Then deep: skeptic + advocate + judge
+      JSON.stringify({
+        reasoning: 'Sourcing is thin.',
+        evidence: ['No named experts.']
+      }),
+      JSON.stringify({
+        reasoning: 'Byline named.',
+        evidence: ['Author Jane Doe.']
+      }),
+      JSON.stringify({
+        verdict: 'Mostly credible but fact-check shows issues.',
+        confidence: 'medium'
+      })
+    ];
+    let call = 0;
+    return {
+      messages: {
+        create: jest.fn(async () => {
+          const text = responses[call] ?? responses[responses.length - 1];
+          call += 1;
+          return {
+            content: [{ type: 'text', text }],
+            usage: { input_tokens: 100, output_tokens: 50 }
+          };
+        })
+      }
+    };
+  }
+
+  const CONTRADICTING_EVIDENCE = {
+    verdict: 'contradicted' as const,
+    confidence: 'high' as const,
+    citations: [
+      {
+        source: 'Snopes',
+        url: 'https://snopes.com/x',
+        snippet: 'Claim refuted.',
+        supports: 'contradicts' as const
+      }
+    ],
+    scoreDelta: -20,
+    reasoning: 'Fact-check sources refute the central claim.'
+  };
+
+  it('shifts overall by evidence scoreDelta and persists evidence to JobResult', async () => {
+    const recordedCosts: any[] = [];
+    setTestDeps({
+      store: createJobStore(),
+      client: deepMockClient() as any,
+      rateLimiter: createRateLimiter(),
+      costTracker: {
+        check: async () => ({ exceeded: false, monthlySpendUsd: 0, budgetUsd: 100 }),
+        record: async (c: any) => { recordedCosts.push(c); }
+      } as any,
+      cache: createCache(),
+      skipSsrfCheck: true,
+      runFactCheckFn: jest.fn(async () => ({
+        evidence: CONTRADICTING_EVIDENCE,
+        usage: { input_tokens: 555, output_tokens: 111 }
+      }))
+    });
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+
+    // Submit + wait for complete
+    const submit = await app.request('/api/check', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://www.nytimes.com/2025/x.html', deviceId: 'd1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+
+    let initial: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.status === 'complete') { initial = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(initial.status).toBe('complete');
+    const initialOverall = initial.overall;
+    expect(typeof initialOverall).toBe('number');
+
+    // Trigger deep
+    const deepRes = await app.request(`/api/check/${jobId}/deep`, { method: 'POST' });
+    expect(deepRes.status).toBe(202);
+
+    // Poll for deepStatus complete
+    let final: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.deepStatus === 'complete' || body.deepStatus === 'failed') { final = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(final.deepStatus).toBe('complete');
+    expect(final.deepAnalysis.evidence).toBeDefined();
+    expect(final.deepAnalysis.evidence.verdict).toBe('contradicted');
+    expect(final.deepAnalysis.evidence.scoreDelta).toBe(-20);
+    // overall shifted by -20 (clamped [5,95]).
+    const expectedShifted = Math.max(5, Math.min(95, Math.round(initialOverall - 20)));
+    expect(final.overall).toBe(expectedShifted);
+    // bucket recomputed
+    expect(final.bucket).toBeDefined();
+
+    // Cost tracker recorded the fact-check usage as a separate entry.
+    const factCheckCost = recordedCosts.find(
+      (c) => c.inputTokens === 555 && c.outputTokens === 111
+    );
+    expect(factCheckCost).toBeDefined();
+    expect(factCheckCost.jobId).toBe(jobId);
+  });
+
+  it('does not shift overall when fact-check returns no evidence (scoreDelta 0)', async () => {
+    setTestDeps({
+      store: createJobStore(),
+      client: deepMockClient() as any,
+      rateLimiter: createRateLimiter(),
+      costTracker: mockCostTracker() as any,
+      cache: createCache(),
+      skipSsrfCheck: true,
+      runFactCheckFn: jest.fn(async () => ({
+        evidence: {
+          verdict: 'uncorroborated' as const,
+          confidence: 'low' as const,
+          citations: [],
+          scoreDelta: 0,
+          reasoning: 'No verifiable claims'
+        },
+        usage: { input_tokens: 0, output_tokens: 0 }
+      }))
+    });
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+
+    const submit = await app.request('/api/check', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'https://www.nytimes.com/2025/x.html', deviceId: 'd1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+
+    let initial: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.status === 'complete') { initial = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const initialOverall = initial.overall;
+
+    await app.request(`/api/check/${jobId}/deep`, { method: 'POST' });
+    let final: any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = await r.json() as any;
+      if (body.deepStatus === 'complete' || body.deepStatus === 'failed') { final = body; break; }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(final.deepStatus).toBe('complete');
+    expect(final.overall).toBe(initialOverall);
+  });
+});
+
 describe('Production hardening wiring', () => {
   it('returns 429 RATE_LIMITED when single-check cap hit', async () => {
     setTestDeps({

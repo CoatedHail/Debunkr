@@ -1,6 +1,9 @@
 // Shared API types — kept in sync (by hand) with mobile/src/types/api.ts.
 // When you change a type here, update the mobile copy in the same commit.
 
+import type { EvidenceResult } from '../services/evidence-aggregator.js';
+export type { EvidenceResult } from '../services/evidence-aggregator.js';
+
 export type ErrorCode =
   | 'URL_INVALID'
   | 'URL_BLOCKED'
@@ -101,6 +104,8 @@ export interface DeepAnalysis {
   judge: JudgeRuling;
   /** UI shows this verbatim under the deep-analysis section. */
   modelLimitation: string;
+  /** M8: external-evidence fact-check result, when available. */
+  evidence?: EvidenceResult;
 }
 
 export interface JobResult {

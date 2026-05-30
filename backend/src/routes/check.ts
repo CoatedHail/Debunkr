@@ -8,6 +8,7 @@ import { analyzeContent, type AnalyzeResult, type UsageStats } from '../services
 import { analyzeContentStub } from '../services/stub-analyzer.js';
 import { runDeepAnalysis, type DeepResult } from '../services/deep-analyzer.js';
 import { runDeepAnalysisStub } from '../services/deep-analyzer-stub.js';
+import type { FactCheckRunResult } from '../services/fact-checker.js';
 import { canonicalDomain, isKnownShortener } from '../services/canonical-domain.js';
 import { createDatasetLookup, type DatasetLookup } from '../services/dataset-lookup.js';
 import { createRateLimiter, type RateLimiter } from '../services/rate-limiter.js';
@@ -17,7 +18,8 @@ import {
   sourceRepFromTier,
   computeOverall,
   bucketLabel,
-  deriveConfidence
+  deriveConfidence,
+  applyEvidenceDelta
 } from '../services/scoring.js';
 import { cheapSignals } from '../services/cheap-signals.js';
 import { env, hasRealLlm } from '../config/env.js';
@@ -34,6 +36,7 @@ let client: Anthropic | null = hasRealLlm()
   ? new Anthropic({ apiKey: env.anthropicApiKey })
   : null;
 let extractorOpts: { skipSsrfCheck?: boolean } = {};
+let runFactCheckFn: ((articleText: string) => Promise<FactCheckRunResult>) | undefined;
 
 const articleTextByJob = new Map<string, string>();
 
@@ -45,6 +48,7 @@ export function setTestDeps(deps: {
   costTracker?: CostTracker;
   cache?: Cache;
   skipSsrfCheck?: boolean;
+  runFactCheckFn?: ((articleText: string) => Promise<FactCheckRunResult>) | null;
 }): void {
   if (deps.store) store = deps.store;
   if (deps.client !== undefined) client = deps.client;
@@ -53,6 +57,9 @@ export function setTestDeps(deps: {
   if (deps.costTracker) costTracker = deps.costTracker;
   if (deps.cache) cache = deps.cache;
   if (deps.skipSsrfCheck !== undefined) extractorOpts = { skipSsrfCheck: deps.skipSsrfCheck };
+  if (deps.runFactCheckFn !== undefined) {
+    runFactCheckFn = deps.runFactCheckFn ?? undefined;
+  }
   articleTextByJob.clear();
 }
 
@@ -81,13 +88,29 @@ async function runAnalysisWithCost(jobId: string, deviceId: string, ip: string, 
 
 async function runDeepWithCost(jobId: string, deviceId: string, ip: string, articleText: string): Promise<DeepResult> {
   if (client) {
-    const result = await runDeepAnalysis(articleText, { client, model: env.anthropicModel });
+    const result = await runDeepAnalysis(articleText, {
+      client,
+      model: env.anthropicModel,
+      ...(runFactCheckFn ? { runFactCheckFn } : {})
+    });
     if (result.usage.inputTokens + result.usage.outputTokens > 0) {
       await costTracker.record({
         jobId, deviceId, ip, model: env.anthropicModel,
         inputTokens: result.usage.inputTokens,
         outputTokens: result.usage.outputTokens
       });
+    }
+    // M8: record fact-check (claim extractor + aggregator) usage too.
+    if (result.ok && result.factCheckUsage) {
+      const fcInput = result.factCheckUsage.input_tokens;
+      const fcOutput = result.factCheckUsage.output_tokens;
+      if (fcInput + fcOutput > 0) {
+        await costTracker.record({
+          jobId, deviceId, ip, model: env.anthropicModel,
+          inputTokens: fcInput,
+          outputTokens: fcOutput
+        });
+      }
     }
     return result;
   }
@@ -228,9 +251,26 @@ async function runDeepPipeline(jobId: string, deviceId: string, ip: string): Pro
     return;
   }
 
+  // M8: if external evidence shifted credibility, adjust overall + bucket.
+  const evidence = result.evidence;
+  const currentJob = store.get(jobId);
+  const currentOverall =
+    typeof currentJob?.overall === 'number' ? currentJob.overall : undefined;
+
+  let nextOverall: number | undefined;
+  let nextBucket: ReturnType<typeof bucketLabel> | undefined;
+  if (evidence && typeof currentOverall === 'number') {
+    const adjusted = applyEvidenceDelta(currentOverall, evidence);
+    if (adjusted !== currentOverall) {
+      nextOverall = adjusted;
+      nextBucket = bucketLabel(adjusted);
+    }
+  }
+
   store.update(jobId, {
     deepStatus: 'complete',
-    deepAnalysis: result.deepAnalysis
+    deepAnalysis: result.deepAnalysis,
+    ...(nextOverall !== undefined ? { overall: nextOverall, bucket: nextBucket } : {})
   });
 }
 

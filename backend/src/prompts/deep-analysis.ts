@@ -72,6 +72,10 @@ Do NOT default to a wishy-washy middle answer. If one side is clearly
 more grounded in specific article evidence, say so. If both sides have
 real merit, acknowledge both.
 
+When an EVIDENCE section is present (wrapped in <<<EVIDENCE_START>>> ... <<<EVIDENCE_END>>>),
+weight its verdict and scoreDelta heavily in your final synthesis. Cite specific
+evidence findings in your reasoning.
+
 ${SAFETY_RULE}
 
 ${JSON_RULE_JUDGE}`;
@@ -95,10 +99,43 @@ export interface JudgeInputs {
   articleText: string;
   skeptic: { reasoning: string; evidence: string[] };
   advocate: { reasoning: string; evidence: string[] };
+  evidence?: {
+    verdict: string;
+    confidence: string;
+    scoreDelta: number;
+    reasoning: string;
+    citations: { source: string; url: string; snippet: string; supports: string }[];
+  };
+}
+
+function buildEvidenceSection(
+  evidence: NonNullable<JudgeInputs['evidence']>
+): string {
+  const citations = Array.isArray(evidence.citations) ? evidence.citations.slice(0, 5) : [];
+  const citationLines =
+    citations.length === 0
+      ? '  (none)'
+      : citations
+          .map(
+            (c) =>
+              `- [${sanitize(c.source ?? '')}] ${sanitize(c.snippet ?? '')} (${sanitize(c.supports ?? '')}) — ${sanitize(c.url ?? '')}`
+          )
+          .join('\n');
+  return `
+<<<EVIDENCE_START>>>
+verdict: ${sanitize(evidence.verdict ?? '')}
+confidence: ${sanitize(evidence.confidence ?? '')}
+scoreDelta: ${Number.isFinite(evidence.scoreDelta) ? evidence.scoreDelta : 0}
+reasoning: ${sanitize(evidence.reasoning ?? '')}
+citations:
+${citationLines}
+<<<EVIDENCE_END>>>
+`;
 }
 
 export function buildJudgeUserMessage(inputs: JudgeInputs): string {
   const trimmed = sanitize(inputs.articleText).slice(0, 8_000); // shorter — judge has less budget
+  const evidenceSection = inputs.evidence ? buildEvidenceSection(inputs.evidence) : '';
   return `Article being judged:
 
 <<<ARTICLE_START>>>
@@ -114,6 +151,6 @@ ADVOCATE'S REPORT:
 Reasoning: ${sanitize(inputs.advocate.reasoning)}
 Evidence:
 ${inputs.advocate.evidence.map((e, i) => `  ${i + 1}. ${sanitize(e)}`).join('\n') || '  (none)'}
-
+${evidenceSection}
 Return ONLY the JSON verdict object specified in the system prompt.`;
 }

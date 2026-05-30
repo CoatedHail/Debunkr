@@ -35,3 +35,6 @@ coverage/
 # Backend runtime data (cost events, feedback events — never commit)
 backend/data/
 data/
+# But DO track source-controlled datasets under backend/src/data/
+!backend/src/data/
+!backend/src/data/**
