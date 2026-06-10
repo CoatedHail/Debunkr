@@ -193,7 +193,7 @@ function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | 
           ]}
           onPress={() => { setVote('up'); send('up'); }}
         >
-          <Text style={styles.feedbackButtonText}>👍</Text>
+          <Text style={styles.feedbackButtonText}>Helpful</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -205,7 +205,7 @@ function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | 
           ]}
           onPress={() => setVote('down')}
         >
-          <Text style={styles.feedbackButtonText}>👎</Text>
+          <Text style={styles.feedbackButtonText}>Not helpful</Text>
         </Pressable>
       </View>
 
@@ -713,7 +713,9 @@ const styles = StyleSheet.create({
     borderColor: '#2563eb'
   },
   feedbackButtonText: {
-    fontSize: 22
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1f2937'
   },
   feedbackInput: {
     backgroundColor: '#fff',
