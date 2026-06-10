@@ -159,7 +159,8 @@ async function runPipeline(jobId: string, url: string, deviceId: string, ip: str
   const hash = articleTextHash(extraction.article.text);
   const cached = cache.get(canonUrl, hash);
   if (cached) {
-    store.update(jobId, { ...cached, jobId });
+    const { jobId: _cachedJobId, ...cachedFields } = cached;
+    store.update(jobId, cachedFields);
     articleTextByJob.set(jobId, extraction.article.text);
     return;
   }
