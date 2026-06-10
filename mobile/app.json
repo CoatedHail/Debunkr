@@ -27,6 +27,12 @@
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3a6751fd-8721-4fb9-9c0c-6444c975b227"
+      }
+    },
+    "owner": "oscarli"
   }
 }
