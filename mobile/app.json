@@ -9,7 +9,10 @@
     "ios": {
       "bundleIdentifier": "com.oscarli.credibilitycheck",
       "buildNumber": "1",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.oscarli.credibilitycheck",
