@@ -132,7 +132,12 @@ function AgentCard({ label, color, report, expanded, onToggle }:
   { label: string; color: string; report: AgentReport; expanded: boolean; onToggle: () => void }) {
   return (
     <View style={[styles.agentCard, { borderColor: color }]}>
-      <Pressable accessibilityRole="button" onPress={onToggle}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={`${label} ${expanded ? 'collapse' : 'expand'} reasoning`}
+        onPress={onToggle}
+      >
         <View style={styles.inline}>
           <Text style={[styles.agentLabel, { color }]}>{label}</Text>
           <Text style={[styles.agentChevron, { color }]}>{expanded ? '▼' : '▶'}</Text>
@@ -296,7 +301,15 @@ function HeadlineBlock({ job }: { job: JobResult }) {
     <View style={styles.headlineWrap}>
       <SectionTitle>OVERALL CREDIBILITY</SectionTitle>
       <View style={[styles.scorePill, { backgroundColor: tintBg }]}>
-        <Text style={[styles.headlineScore, { color }]}>{job.overall}</Text>
+        <Text
+          style={[styles.headlineScore, { color }]}
+          adjustsFontSizeToFit
+          numberOfLines={1}
+          minimumFontScale={0.6}
+          accessibilityLabel={`Credibility score ${job.overall} out of 100`}
+        >
+          {job.overall}
+        </Text>
         <Text style={[styles.scoreSuffix, { color }]}>/ 100</Text>
       </View>
       <Text style={[styles.headlineLabel, { color }]}>{bucketLabel(job.bucket)}</Text>

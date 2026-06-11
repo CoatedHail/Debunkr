@@ -102,8 +102,9 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
 
         <Text style={styles.h2}>Feedback</Text>
         <Text style={styles.p}>
-          A 👍/👎 widget is coming in M6. For now, errors and bad ratings
-          can be reported to the developer directly.
+          Every result has Helpful / Not helpful buttons. Not helpful opens a
+          short comment box. Your feedback shapes future improvements to the
+          scoring and explanations.
         </Text>
       </ScrollView>
     </SafeAreaView>
