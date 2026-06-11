@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Background: soft sage green -->
+  <rect width="1024" height="1024" fill="#A8D5BA"/>
+
+  <!-- Subtle gradient overlay -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="cGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2F6B5C"/>
+      <stop offset="100%" stop-color="#1F4D43"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bgGrad)"/>
+
+  <!-- Cream inner circle -->
+  <circle cx="512" cy="512" r="380" fill="#FAF4E6"/>
+
+  <!-- Bold rounded C (opens to the right) -->
+  <path
+    d="M 712 380
+       A 240 240 0 1 0 712 644
+       L 712 540
+       A 140 140 0 1 1 712 484
+       Z"
+    fill="url(#cGrad)"
+    stroke="none"/>
+
+  <!-- Small green checkmark badge in lower-right -->
+  <circle cx="720" cy="700" r="105" fill="#FFFFFF"/>
+  <circle cx="720" cy="700" r="92" fill="#3FA66B"/>
+  <path
+    d="M 668 700 L 705 738 L 778 660"
+    stroke="#FFFFFF"
+    stroke-width="32"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"/>
+</svg>
