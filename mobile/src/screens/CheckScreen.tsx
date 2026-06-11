@@ -173,7 +173,7 @@ function DeepAnalysisBlock({ deep }: { deep: DeepAnalysis }) {
         <Text style={styles.judgeVerdict}>{deep.judge.verdict}</Text>
         <View style={[styles.confidencePill, { borderColor: confidenceColor(deep.judge.confidence), marginTop: 10 }]}>
           <Text style={[styles.confidencePillText, { color: confidenceColor(deep.judge.confidence) }]}>
-            {deep.judge.confidence.toUpperCase()} CONFIDENCE
+            {deep.judge.confidence.toUpperCase()} RATING STRENGTH
           </Text>
         </View>
       </View>
@@ -306,7 +306,7 @@ function HeadlineBlock({ job }: { job: JobResult }) {
           adjustsFontSizeToFit
           numberOfLines={1}
           minimumFontScale={0.6}
-          accessibilityLabel={`Credibility score ${job.overall} out of 100`}
+          accessibilityLabel={`Credibility score ${job.overall} out of 100, rating strength ${job.confidence}`}
         >
           {job.overall}
         </Text>
@@ -315,7 +315,7 @@ function HeadlineBlock({ job }: { job: JobResult }) {
       <Text style={[styles.headlineLabel, { color }]}>{bucketLabel(job.bucket)}</Text>
       <View style={[styles.confidencePill, { borderColor: confidenceColor(job.confidence), marginTop: 8 }]}>
         <Text style={[styles.confidencePillText, { color: confidenceColor(job.confidence) }]}>
-          {job.confidence.toUpperCase()} CONFIDENCE
+          {job.confidence.toUpperCase()} RATING STRENGTH
         </Text>
       </View>
     </View>
@@ -352,7 +352,7 @@ function BreakdownBlock({ job }: { job: JobResult }) {
       <View style={styles.breakdownDivider} />
 
       <View style={styles.breakdownRow}>
-        <Text style={styles.breakdownName}>Content quality (AI)</Text>
+        <Text style={styles.breakdownName}>Article quality</Text>
         <Text style={styles.breakdownScore}>{job.contentQuality}</Text>
       </View>
       {job.contentReasoning && (<Text style={styles.breakdownSource}>{job.contentReasoning}</Text>)}
@@ -361,10 +361,10 @@ function BreakdownBlock({ job }: { job: JobResult }) {
         <>
           <View style={styles.breakdownDivider} />
           <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownName}>Bias (AI)</Text>
+            <Text style={styles.breakdownName}>Tone & balance</Text>
             <Text style={styles.breakdownScoreWord}>{biasLabel(job.bias.scale)}</Text>
           </View>
-          <Text style={styles.breakdownSource}>LLM-estimated, low confidence on its own.</Text>
+          <Text style={styles.breakdownSource}>LLM-estimated, low rating strength on its own.</Text>
         </>
       )}
     </View>
@@ -541,8 +541,22 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
         <View style={styles.resultArea}>
           {state.kind === 'idle' && (
-            <View style={styles.idleCard}>
-              <Text style={styles.idleText}>Awaiting a URL.</Text>
+            <View style={styles.howCard}>
+              <Text style={styles.sectionTitle}>HOW IT WORKS</Text>
+              <View style={styles.howStep}>
+                <Text style={styles.howNumber}>1.</Text>
+                <Text style={styles.howText}>Paste any article URL above.</Text>
+              </View>
+              <View style={styles.howStep}>
+                <Text style={styles.howNumber}>2.</Text>
+                <Text style={styles.howText}>We score it 0-100 for credibility.</Text>
+              </View>
+              <View style={styles.howStep}>
+                <Text style={styles.howNumber}>3.</Text>
+                <Text style={styles.howText}>
+                  Tap "Deep Analysis" for fact-check evidence + a Skeptic / Advocate debate.
+                </Text>
+              </View>
             </View>
           )}
 
@@ -591,7 +605,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
               {completeJob.counterArgument && (
                 <View style={styles.counterBox}>
-                  <Text style={styles.counterTitle}>COUNTER-ARGUMENT</Text>
+                  <Text style={styles.counterTitle}>DEVIL'S ADVOCATE</Text>
                   <Text style={styles.counterText}>{completeJob.counterArgument}</Text>
                   <Text style={styles.counterFootnote}>
                     The strongest reason this rating could be wrong. Media-literacy tool.
@@ -792,18 +806,32 @@ const styles = StyleSheet.create({
   resultArea: { marginTop: 4 },
   stack: { gap: 16 },
 
-  idleCard: {
+  howCard: {
     backgroundColor: COLORS.cream,
     borderColor: COLORS.borderSoft,
     borderWidth: 1,
     borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
+    padding: 18,
     ...cardShadow
   },
-  idleText: {
-    color: COLORS.textMuted,
-    fontSize: 14
+  howStep: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 8
+  },
+  howNumber: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.deepTeal,
+    lineHeight: 22,
+    minWidth: 18
+  },
+  howText: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.text,
+    lineHeight: 22
   },
 
   // ---- Generic card ----

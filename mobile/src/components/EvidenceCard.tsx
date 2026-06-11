@@ -42,7 +42,7 @@ function verdictLabel(v: EvidenceVerdict): string {
     case 'corroborated':   return 'Corroborated';
     case 'contradicted':   return 'Contradicted';
     case 'mixed':          return 'Mixed';
-    case 'uncorroborated': return 'Uncorroborated';
+    case 'uncorroborated': return 'No fact-checks found';
   }
 }
 
@@ -56,9 +56,9 @@ function confidenceColor(c: Confidence): string {
 
 function confidenceLabel(c: Confidence): string {
   switch (c) {
-    case 'high':   return 'High confidence';
-    case 'medium': return 'Medium confidence';
-    case 'low':    return 'Low confidence';
+    case 'high':   return 'High rating strength';
+    case 'medium': return 'Medium rating strength';
+    case 'low':    return 'Low rating strength';
   }
 }
 
@@ -124,7 +124,7 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.header}>EXTERNAL EVIDENCE</Text>
+      <Text style={styles.header}>FACT-CHECK</Text>
 
       <View style={styles.topRow}>
         <View style={[styles.verdictBadge, { backgroundColor: vColor }]}>
