@@ -39,10 +39,37 @@ export interface CheckScreenProps {
   onOpenLimitations: () => void;
 }
 
+// ---- Brand palette ---------------------------------------------------------
+const COLORS = {
+  sageBg:        '#A8D5BA',
+  sageLight:     '#D7EAD9',
+  cream:         '#FAF4E6',
+  pageBg:        '#F7F4EC',
+  deepTeal:      '#2F6B5C',
+  deepTealLight: '#4A8A78',
+  high:          '#3FA66B',
+  mediumWarm:    '#E89B4C',
+  lowSoft:       '#D26464',
+  text:          '#1F2937',
+  textMuted:     '#6B7280',
+  textDim:       '#9CA3AF',
+  border:        '#E5E7EB',
+  borderSoft:    '#EFE9DC',
+  white:         '#FFFFFF',
+  counterBg:     '#FBF3DA'
+};
+
+// ---- Bucket / score helpers -----------------------------------------------
 function overallColor(score: number): string {
-  if (score >= 70) return '#15803d';
-  if (score >= 40) return '#b45309';
-  return '#b91c1c';
+  if (score >= 70) return COLORS.high;
+  if (score >= 40) return COLORS.mediumWarm;
+  return COLORS.lowSoft;
+}
+
+function overallTintBg(score: number): string {
+  if (score >= 70) return '#DFF1E5'; // very soft green
+  if (score >= 40) return '#FBE9D5'; // very soft amber
+  return '#F6DCDC';                  // very soft red
 }
 
 function bucketLabel(bucket: OverallBucket): string {
@@ -57,19 +84,19 @@ function bucketLabel(bucket: OverallBucket): string {
 
 function confidenceColor(c: Confidence): string {
   switch (c) {
-    case 'high':   return '#15803d';
-    case 'medium': return '#b45309';
-    case 'low':    return '#5f6368';
+    case 'high':   return COLORS.high;
+    case 'medium': return COLORS.mediumWarm;
+    case 'low':    return COLORS.textMuted;
   }
 }
 
 function tierColor(tier: ReliabilityTier): string {
   switch (tier) {
-    case 'high':    return '#15803d';
-    case 'medium':  return '#b45309';
-    case 'mixed':   return '#b45309';
-    case 'low':     return '#b91c1c';
-    case 'unknown': return '#5f6368';
+    case 'high':    return COLORS.high;
+    case 'medium':  return COLORS.mediumWarm;
+    case 'mixed':   return COLORS.mediumWarm;
+    case 'low':     return COLORS.lowSoft;
+    case 'unknown': return COLORS.textMuted;
   }
 }
 
@@ -95,22 +122,28 @@ function sourceLabel(s: DatasetVerdict['source']): string {
   return s === 'curated-wikipedia' ? 'Wikipedia' : 'IFCN';
 }
 
+// ---- Reusable section-title ------------------------------------------------
+function SectionTitle({ children }: { children: string }) {
+  return <Text style={styles.sectionTitle}>{children}</Text>;
+}
+
+// ---- Agent card -----------------------------------------------------------
 function AgentCard({ label, color, report, expanded, onToggle }:
   { label: string; color: string; report: AgentReport; expanded: boolean; onToggle: () => void }) {
   return (
     <View style={[styles.agentCard, { borderColor: color }]}>
-      <Pressable onPress={onToggle}>
+      <Pressable accessibilityRole="button" onPress={onToggle}>
         <View style={styles.inline}>
           <Text style={[styles.agentLabel, { color }]}>{label}</Text>
           <Text style={[styles.agentChevron, { color }]}>{expanded ? '▼' : '▶'}</Text>
         </View>
       </Pressable>
       {expanded && (
-        <View style={{ marginTop: 8 }}>
+        <View style={{ marginTop: 10 }}>
           <Text style={styles.agentReasoning}>{report.reasoning}</Text>
           {report.evidence.length > 0 && (
-            <View style={{ marginTop: 6 }}>
-              <Text style={styles.agentEvidenceTitle}>Evidence:</Text>
+            <View style={{ marginTop: 10 }}>
+              <Text style={styles.agentEvidenceTitle}>Evidence</Text>
               {report.evidence.map((e, i) => (
                 <Text key={i} style={styles.agentEvidence}>• {e}</Text>
               ))}
@@ -122,17 +155,18 @@ function AgentCard({ label, color, report, expanded, onToggle }:
   );
 }
 
+// ---- Deep Analysis block --------------------------------------------------
 function DeepAnalysisBlock({ deep }: { deep: DeepAnalysis }) {
   const [skExpanded, setSkExpanded] = useState(false);
   const [adExpanded, setAdExpanded] = useState(false);
   return (
     <View style={styles.deepBox}>
-      <Text style={styles.deepHeader}>Deep Analysis</Text>
+      <SectionTitle>DEEP ANALYSIS</SectionTitle>
 
       <View style={styles.judgeBox}>
         <Text style={styles.judgeLabel}>JUDGE'S VERDICT</Text>
         <Text style={styles.judgeVerdict}>{deep.judge.verdict}</Text>
-        <View style={[styles.confidencePill, { borderColor: confidenceColor(deep.judge.confidence), marginTop: 6 }]}>
+        <View style={[styles.confidencePill, { borderColor: confidenceColor(deep.judge.confidence), marginTop: 10 }]}>
           <Text style={[styles.confidencePillText, { color: confidenceColor(deep.judge.confidence) }]}>
             {deep.judge.confidence.toUpperCase()} CONFIDENCE
           </Text>
@@ -141,9 +175,9 @@ function DeepAnalysisBlock({ deep }: { deep: DeepAnalysis }) {
 
       {deep.evidence && <EvidenceCard evidence={deep.evidence} />}
 
-      <AgentCard label="SKEPTIC" color="#b91c1c" report={deep.skeptic}
+      <AgentCard label="SKEPTIC" color={COLORS.lowSoft} report={deep.skeptic}
                  expanded={skExpanded} onToggle={() => setSkExpanded(!skExpanded)} />
-      <AgentCard label="ADVOCATE" color="#15803d" report={deep.advocate}
+      <AgentCard label="ADVOCATE" color={COLORS.high} report={deep.advocate}
                  expanded={adExpanded} onToggle={() => setAdExpanded(!adExpanded)} />
 
       <Text style={styles.modelLimitation}>{deep.modelLimitation}</Text>
@@ -151,6 +185,7 @@ function DeepAnalysisBlock({ deep }: { deep: DeepAnalysis }) {
   );
 }
 
+// ---- Feedback widget ------------------------------------------------------
 function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | null }) {
   const [vote, setVote] = useState<'up' | 'down' | null>(null);
   const [comment, setComment] = useState('');
@@ -185,35 +220,44 @@ function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | 
       <View style={styles.feedbackButtons}>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Mark rating as helpful"
           disabled={submitting || vote !== null}
           style={({ pressed }) => [
             styles.feedbackButton,
             vote === 'up' && styles.feedbackButtonSelected,
-            pressed && styles.buttonPressed
+            pressed && styles.pressed
           ]}
           onPress={() => { setVote('up'); send('up'); }}
         >
-          <Text style={styles.feedbackButtonText}>Helpful</Text>
+          <Text style={[
+            styles.feedbackButtonText,
+            vote === 'up' && styles.feedbackButtonTextSelected
+          ]}>Helpful</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Mark rating as not helpful"
           disabled={submitting || vote !== null}
           style={({ pressed }) => [
             styles.feedbackButton,
             vote === 'down' && styles.feedbackButtonSelected,
-            pressed && styles.buttonPressed
+            pressed && styles.pressed
           ]}
           onPress={() => setVote('down')}
         >
-          <Text style={styles.feedbackButtonText}>Not helpful</Text>
+          <Text style={[
+            styles.feedbackButtonText,
+            vote === 'down' && styles.feedbackButtonTextSelected
+          ]}>Not helpful</Text>
         </Pressable>
       </View>
 
       {vote === 'down' && (
-        <View style={{ marginTop: 8 }}>
+        <View style={{ marginTop: 12 }}>
           <TextInput
             style={styles.feedbackInput}
             placeholder="Why? (optional)"
+            placeholderTextColor={COLORS.textDim}
             value={comment}
             onChangeText={setComment}
             multiline
@@ -222,48 +266,56 @@ function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | 
           />
           <Pressable
             accessibilityRole="button"
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed, submitting && styles.buttonDisabled, { marginTop: 6 }]}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.pressed,
+              submitting && styles.buttonDisabled,
+              { marginTop: 10 }
+            ]}
             disabled={submitting}
             onPress={() => send('down', comment.trim() || undefined)}
           >
-            <Text style={styles.buttonText}>{submitting ? 'Sending…' : 'Send feedback'}</Text>
+            <Text style={styles.primaryButtonText}>{submitting ? 'Sending…' : 'Send feedback'}</Text>
           </Pressable>
         </View>
       )}
 
       {error && (
-        <Text style={[styles.errorMessage, { marginTop: 6 }]}>{error}</Text>
+        <Text style={[styles.errorMessage, { marginTop: 8 }]}>{error}</Text>
       )}
     </View>
   );
 }
 
+// ---- Headline (big score + bucket) ----------------------------------------
 function HeadlineBlock({ job }: { job: JobResult }) {
   if (job.overall === undefined || !job.bucket || !job.confidence) return null;
   const color = overallColor(job.overall);
+  const tintBg = overallTintBg(job.overall);
   return (
-    <View>
-      <Text style={styles.label}>Overall credibility</Text>
-      <View style={styles.inline}>
+    <View style={styles.headlineWrap}>
+      <SectionTitle>OVERALL CREDIBILITY</SectionTitle>
+      <View style={[styles.scorePill, { backgroundColor: tintBg }]}>
         <Text style={[styles.headlineScore, { color }]}>{job.overall}</Text>
-        <View style={{ flexShrink: 1 }}>
-          <Text style={[styles.headlineLabel, { color }]}>{bucketLabel(job.bucket)}</Text>
-          <View style={[styles.confidencePill, { borderColor: confidenceColor(job.confidence) }]}>
-            <Text style={[styles.confidencePillText, { color: confidenceColor(job.confidence) }]}>
-              {job.confidence.toUpperCase()} CONFIDENCE
-            </Text>
-          </View>
-        </View>
+        <Text style={[styles.scoreSuffix, { color }]}>/ 100</Text>
+      </View>
+      <Text style={[styles.headlineLabel, { color }]}>{bucketLabel(job.bucket)}</Text>
+      <View style={[styles.confidencePill, { borderColor: confidenceColor(job.confidence), marginTop: 8 }]}>
+        <Text style={[styles.confidencePillText, { color: confidenceColor(job.confidence) }]}>
+          {job.confidence.toUpperCase()} CONFIDENCE
+        </Text>
       </View>
     </View>
   );
 }
 
+// ---- Breakdown ------------------------------------------------------------
 function BreakdownBlock({ job }: { job: JobResult }) {
   if (job.sourceRep === undefined || job.contentQuality === undefined) return null;
   return (
-    <View style={styles.breakdownBox}>
-      <Text style={styles.label}>Breakdown</Text>
+    <View style={styles.card}>
+      <SectionTitle>BREAKDOWN</SectionTitle>
+
       <View style={styles.breakdownRow}>
         <Text style={styles.breakdownName}>Publisher reputation</Text>
         <Text style={styles.breakdownScore}>{job.sourceRep}</Text>
@@ -273,25 +325,31 @@ function BreakdownBlock({ job }: { job: JobResult }) {
           ? 'from curated Wikipedia consensus'
           : 'from article-only signals (publisher unknown)'}
       </Text>
+
       {job.cheapSignals && (
         <View style={styles.cheapBox}>
-          <Text style={styles.cheapTitle}>Signals used:</Text>
+          <Text style={styles.cheapTitle}>SIGNALS USED</Text>
           <Text style={styles.cheapLine}>{job.cheapSignals.https ? '✓' : '✗'} HTTPS</Text>
           <Text style={styles.cheapLine}>{job.cheapSignals.hasByline ? '✓' : '✗'} Byline present</Text>
           <Text style={styles.cheapLine}>{job.cheapSignals.hasSiteName ? '✓' : '✗'} Publisher name extracted</Text>
           <Text style={styles.cheapLine}>{job.cheapSignals.longEnoughBonus ? '✓' : '✗'} Article {'>'} 2000 chars</Text>
         </View>
       )}
-      <View style={[styles.breakdownRow, { marginTop: 12 }]}>
+
+      <View style={styles.breakdownDivider} />
+
+      <View style={styles.breakdownRow}>
         <Text style={styles.breakdownName}>Content quality (AI)</Text>
         <Text style={styles.breakdownScore}>{job.contentQuality}</Text>
       </View>
       {job.contentReasoning && (<Text style={styles.breakdownSource}>{job.contentReasoning}</Text>)}
+
       {job.bias && (
         <>
-          <View style={[styles.breakdownRow, { marginTop: 12 }]}>
+          <View style={styles.breakdownDivider} />
+          <View style={styles.breakdownRow}>
             <Text style={styles.breakdownName}>Bias (AI)</Text>
-            <Text style={styles.breakdownScore}>{biasLabel(job.bias.scale)}</Text>
+            <Text style={styles.breakdownScoreWord}>{biasLabel(job.bias.scale)}</Text>
           </View>
           <Text style={styles.breakdownSource}>LLM-estimated, low confidence on its own.</Text>
         </>
@@ -300,23 +358,28 @@ function BreakdownBlock({ job }: { job: JobResult }) {
   );
 }
 
+// ---- Publisher block ------------------------------------------------------
 function PublisherDetailBlock({ publisher }: { publisher: PublisherLookup }) {
   return (
-    <View style={{ marginTop: 12 }}>
-      <Text style={styles.label}>Publisher</Text>
-      <Text style={styles.value}>{publisher.canonicalDomain ?? 'Unknown domain'}</Text>
-      <View style={[styles.inline, { marginTop: 6 }]}>
+    <View style={styles.card}>
+      <SectionTitle>PUBLISHER</SectionTitle>
+      <Text style={styles.publisherDomain}>{publisher.canonicalDomain ?? 'Unknown domain'}</Text>
+      <View style={[styles.inline, { marginTop: 8 }]}>
         <View style={[styles.tierBadge, { backgroundColor: tierColor(publisher.reliabilityTier) }]}>
           <Text style={styles.tierBadgeText}>{tierLabel(publisher.reliabilityTier)}</Text>
         </View>
       </View>
       {publisher.verdicts.length > 0 && (
-        <View style={{ marginTop: 6 }}>
+        <View style={{ marginTop: 12 }}>
           {publisher.verdicts.map((v, i) => (
             <View key={i} style={styles.verdictRow}>
-              <Text style={styles.verdictSource}>{sourceLabel(v.source)}</Text>
-              <Text style={styles.verdictText}>{v.verdict}</Text>
-              {v.details && <Text style={styles.verdictDetails}>{v.details}</Text>}
+              <View style={styles.sourceChip}>
+                <Text style={styles.sourceChipText}>{sourceLabel(v.source)}</Text>
+              </View>
+              <View style={{ flexShrink: 1 }}>
+                <Text style={styles.verdictText}>{v.verdict}</Text>
+                {v.details && <Text style={styles.verdictDetails}>{v.details}</Text>}
+              </View>
             </View>
           ))}
         </View>
@@ -325,6 +388,7 @@ function PublisherDetailBlock({ publisher }: { publisher: PublisherLookup }) {
   );
 }
 
+// ---- Main screen ----------------------------------------------------------
 export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScreenProps) {
   const [url, setUrl] = useState('');
   const [state, setState] = useState<ScreenState>({ kind: 'idle' });
@@ -355,7 +419,6 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
     for (let attempt = 0; attempt < DEEP_POLL_MAX_ATTEMPTS; attempt++) {
       const result = await getJob(jobId);
       if (!result.ok) {
-        // Update current state with the new error inline; keep result intact
         setState((prev) => {
           if (prev.kind !== 'result') return prev;
           return { kind: 'result', job: { ...prev.job, deepStatus: 'failed', deepError: result.error } };
@@ -410,13 +473,37 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.sageStrip} />
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Credibility Check</Text>
-        <Text style={styles.subtitle}>Paste an article URL.</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flexShrink: 1 }}>
+            <Text style={styles.title}>Credibility Check</Text>
+            <Text style={styles.subtitle}>Paste an article URL.</Text>
+          </View>
+          <View style={styles.headerLinks}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="How this works"
+              onPress={onOpenMethodology}
+              style={({ pressed }) => [styles.headerLinkButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.headerLinkText}>How</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Limitations"
+              onPress={onOpenLimitations}
+              style={({ pressed }) => [styles.headerLinkButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.headerLinkText}>Limits</Text>
+            </Pressable>
+          </View>
+        </View>
 
         <TextInput
           style={styles.input}
           placeholder="https://example.com/article"
+          placeholderTextColor={COLORS.textDim}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
@@ -427,58 +514,71 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Check article credibility"
           style={({ pressed }) => [
-            styles.button,
-            pressed && styles.buttonPressed,
+            styles.primaryButton,
+            pressed && styles.pressed,
             isWorking && styles.buttonDisabled
           ]}
           disabled={isWorking}
           onPress={onSubmit}
         >
-          <Text style={styles.buttonText}>Check</Text>
+          <Text style={styles.primaryButtonText}>Check</Text>
         </Pressable>
 
-        <View style={styles.resultBox}>
-          {state.kind === 'idle' && <Text style={styles.muted}>Awaiting a URL.</Text>}
+        <View style={styles.resultArea}>
+          {state.kind === 'idle' && (
+            <View style={styles.idleCard}>
+              <Text style={styles.idleText}>Awaiting a URL.</Text>
+            </View>
+          )}
 
           {state.kind === 'submitting' && (
-            <View style={styles.inline}>
-              <ActivityIndicator />
-              <Text style={styles.muted}>Submitting…</Text>
+            <View style={styles.card}>
+              <View style={styles.inline}>
+                <ActivityIndicator color={COLORS.deepTeal} />
+                <Text style={styles.muted}>Submitting…</Text>
+              </View>
             </View>
           )}
 
           {state.kind === 'polling' && (
-            <View>
+            <View style={styles.stack}>
               {polling?.publisher && <PublisherDetailBlock publisher={polling.publisher} />}
               {polling?.article?.title && (
-                <View style={{ marginTop: 12 }}>
-                  <Text style={styles.label}>Article</Text>
+                <View style={styles.card}>
+                  <SectionTitle>ARTICLE</SectionTitle>
                   <Text style={styles.value}>{polling.article.title}</Text>
                 </View>
               )}
-              <View style={[styles.inline, { marginTop: 12 }]}>
-                <ActivityIndicator />
-                <Text style={styles.muted}>Analyzing…</Text>
+              <View style={styles.card}>
+                <View style={styles.inline}>
+                  <ActivityIndicator color={COLORS.deepTeal} />
+                  <Text style={styles.muted}>Analyzing…</Text>
+                </View>
               </View>
             </View>
           )}
 
           {completeJob && (
-            <View>
-              <HeadlineBlock job={completeJob} />
+            <View style={styles.stack}>
+              <View style={styles.card}>
+                <HeadlineBlock job={completeJob} />
+              </View>
+
               {completeJob.article?.title && (
-                <View style={{ marginTop: 16 }}>
-                  <Text style={styles.label}>Article</Text>
+                <View style={styles.card}>
+                  <SectionTitle>ARTICLE</SectionTitle>
                   <Text style={styles.value}>{completeJob.article.title}</Text>
                 </View>
               )}
+
               <BreakdownBlock job={completeJob} />
               {completeJob.publisher && <PublisherDetailBlock publisher={completeJob.publisher} />}
 
               {completeJob.counterArgument && (
                 <View style={styles.counterBox}>
-                  <Text style={styles.counterTitle}>Counter-argument</Text>
+                  <Text style={styles.counterTitle}>COUNTER-ARGUMENT</Text>
                   <Text style={styles.counterText}>{completeJob.counterArgument}</Text>
                   <Text style={styles.counterFootnote}>
                     The strongest reason this rating could be wrong. Media-literacy tool.
@@ -490,10 +590,11 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
               {/* Deep Analysis CTA + section */}
               {(!completeJob.deepStatus || completeJob.deepStatus === 'idle') && (
-                <View style={{ marginTop: 12 }}>
+                <View style={styles.deepCtaWrap}>
                   <Pressable
                     accessibilityRole="button"
-                    style={({ pressed }) => [styles.deepButton, pressed && styles.buttonPressed]}
+                    accessibilityLabel="Run Deep Analysis"
+                    style={({ pressed }) => [styles.deepButton, pressed && styles.pressed]}
                     onPress={onStartDeep}
                   >
                     <Text style={styles.deepButtonText}>Run Deep Analysis</Text>
@@ -506,17 +607,23 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
               )}
 
               {completeJob.deepStatus === 'pending' && (
-                <View style={[styles.inline, { marginTop: 12 }]}>
-                  <ActivityIndicator />
-                  <Text style={styles.muted}>Running Deep Analysis…</Text>
+                <View style={styles.card}>
+                  <View style={styles.inline}>
+                    <ActivityIndicator color={COLORS.deepTeal} />
+                    <Text style={styles.muted}>Running Deep Analysis…</Text>
+                  </View>
                 </View>
               )}
 
               {completeJob.deepStatus === 'failed' && completeJob.deepError && (
-                <View style={{ marginTop: 12 }}>
+                <View style={styles.card}>
                   <Text style={styles.errorTitle}>Deep Analysis failed</Text>
                   <Text style={styles.errorMessage}>{completeJob.deepError.message}</Text>
-                  <Pressable onPress={onStartDeep} style={{ marginTop: 8 }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={onStartDeep}
+                    style={({ pressed }) => [styles.retryLink, pressed && styles.pressed]}
+                  >
                     <Text style={styles.link}>Retry</Text>
                   </Pressable>
                 </View>
@@ -526,37 +633,46 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
                 <DeepAnalysisBlock deep={completeJob.deepAnalysis} />
               )}
 
-              <Text style={[styles.disclaimer, { marginTop: 16 }]}>
+              <Text style={styles.disclaimer}>
                 AI-generated. May contain errors. Publisher tier from cited sources.
               </Text>
 
-              <View style={styles.linkRow}>
-                <Pressable onPress={onOpenMethodology}><Text style={styles.link}>How this works</Text></Pressable>
-                <Pressable onPress={onOpenLimitations}><Text style={styles.link}>Limitations</Text></Pressable>
-              </View>
-
-              <Pressable onPress={onReset} style={styles.resetLink}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onReset}
+                style={({ pressed }) => [styles.resetLink, pressed && styles.pressed]}
+              >
                 <Text style={styles.resetText}>Check another URL</Text>
               </Pressable>
             </View>
           )}
 
           {failedJob && failedJob.error && (
-            <View>
+            <View style={styles.stack}>
               {failedJob.publisher && <PublisherDetailBlock publisher={failedJob.publisher} />}
-              <Text style={[styles.errorTitle, { marginTop: 12 }]}>Couldn't analyze this URL</Text>
-              <Text style={styles.errorMessage}>{failedJob.error.message}</Text>
-              <Pressable onPress={onReset} style={styles.resetLink}>
-                <Text style={styles.resetText}>Try another URL</Text>
-              </Pressable>
+              <View style={styles.card}>
+                <Text style={styles.errorTitle}>Couldn't analyze this URL</Text>
+                <Text style={styles.errorMessage}>{failedJob.error.message}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onReset}
+                  style={({ pressed }) => [styles.resetLink, pressed && styles.pressed]}
+                >
+                  <Text style={styles.resetText}>Try another URL</Text>
+                </Pressable>
+              </View>
             </View>
           )}
 
           {state.kind === 'error' && (
-            <View>
+            <View style={styles.card}>
               <Text style={styles.errorTitle}>Error</Text>
               <Text style={styles.errorMessage}>{state.message}</Text>
-              <Pressable onPress={onReset} style={styles.resetLink}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onReset}
+                style={({ pressed }) => [styles.resetLink, pressed && styles.pressed]}
+              >
                 <Text style={styles.resetText}>Try again</Text>
               </Pressable>
             </View>
@@ -567,164 +683,405 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
   );
 }
 
+// ---- Shared style fragments -----------------------------------------------
+const cardShadow = {
+  shadowColor: '#1F2937',
+  shadowOpacity: 0.06,
+  shadowOffset: { width: 0, height: 2 },
+  shadowRadius: 8,
+  elevation: 2
+};
+
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fafaf7' },
-  container: { padding: 20, gap: 12 },
-  title: { fontSize: 28, fontWeight: '700' },
-  subtitle: { fontSize: 14, color: '#5f6368', marginBottom: 8 },
+  safe: { flex: 1, backgroundColor: COLORS.pageBg },
+
+  // Sage accent strip at the very top of the screen, behind the safe area.
+  sageStrip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 6,
+    backgroundColor: COLORS.sageBg
+  },
+
+  container: { padding: 20, gap: 16 },
+
+  // ---- Header ----
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.deepTeal,
+    letterSpacing: -0.3
+  },
+  subtitle: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    marginTop: 4
+  },
+  headerLinks: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4
+  },
+  headerLinkButton: {
+    borderWidth: 1,
+    borderColor: COLORS.deepTealLight,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: COLORS.cream
+  },
+  headerLinkText: {
+    color: COLORS.deepTeal,
+    fontSize: 13,
+    fontWeight: '600'
+  },
+
+  // ---- Input ----
   input: {
-    backgroundColor: '#fff', borderColor: '#e6e3dc', borderWidth: 1,
-    borderRadius: 8, padding: 12, fontSize: 16
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.borderSoft,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: COLORS.text,
+    ...cardShadow
   },
-  button: { backgroundColor: '#2563eb', borderRadius: 8, padding: 14, alignItems: 'center' },
-  buttonPressed: { opacity: 0.85 },
-  buttonDisabled: { opacity: 0.4 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  resultBox: {
-    backgroundColor: '#fff', borderColor: '#e6e3dc', borderWidth: 1,
-    borderRadius: 8, padding: 16, marginTop: 8
-  },
-  inline: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  muted: { color: '#5f6368' },
-  label: { color: '#5f6368', fontSize: 12, textTransform: 'uppercase', marginTop: 8 },
-  value: { fontSize: 16, color: '#1a1a1a' },
 
-  headlineScore: { fontSize: 56, fontWeight: '800', lineHeight: 62 },
-  headlineLabel: { fontSize: 18, fontWeight: '700' },
+  // ---- Primary button (Check / Send) ----
+  primaryButton: {
+    backgroundColor: COLORS.deepTeal,
+    borderRadius: 999,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    ...cardShadow
+  },
+  primaryButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2
+  },
+  pressed: { opacity: 0.85 },
+  buttonDisabled: { opacity: 0.5 },
+
+  // ---- Results layout ----
+  resultArea: { marginTop: 4 },
+  stack: { gap: 16 },
+
+  idleCard: {
+    backgroundColor: COLORS.cream,
+    borderColor: COLORS.borderSoft,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    ...cardShadow
+  },
+  idleText: {
+    color: COLORS.textMuted,
+    fontSize: 14
+  },
+
+  // ---- Generic card ----
+  card: {
+    backgroundColor: COLORS.cream,
+    borderColor: COLORS.borderSoft,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 18,
+    ...cardShadow
+  },
+
+  // ---- Section title (BREAKDOWN, PUBLISHER, etc) ----
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 10
+  },
+
+  inline: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
+  muted: { color: COLORS.textMuted, fontSize: 14 },
+  value: { fontSize: 15, color: COLORS.text, lineHeight: 22 },
+
+  // ---- Headline (score) ----
+  headlineWrap: { alignItems: 'flex-start' },
+  scorePill: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'baseline'
+  },
+  headlineScore: { fontSize: 72, fontWeight: '800', lineHeight: 78, letterSpacing: -2 },
+  scoreSuffix: { fontSize: 18, fontWeight: '600', marginLeft: 6, opacity: 0.7 },
+  headlineLabel: { fontSize: 22, fontWeight: '600', marginTop: 8 },
+
   confidencePill: {
-    borderWidth: 1, borderRadius: 999,
-    paddingHorizontal: 8, paddingVertical: 2, marginTop: 4,
-    alignSelf: 'flex-start'
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.white
   },
-  confidencePillText: { fontSize: 10, fontWeight: '700' },
+  confidencePillText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },
 
-  breakdownBox: {
-    backgroundColor: '#fafaf7', borderColor: '#e6e3dc', borderWidth: 1,
-    borderRadius: 8, padding: 12, marginTop: 16
-  },
+  // ---- Breakdown rows ----
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  breakdownName: { fontSize: 14, color: '#1a1a1a', fontWeight: '600' },
-  breakdownScore: { fontSize: 16, color: '#1a1a1a', fontWeight: '700' },
-  breakdownSource: { fontSize: 12, color: '#5f6368', marginTop: 2 },
+  breakdownName: { fontSize: 15, color: COLORS.text, fontWeight: '500' },
+  breakdownScore: { fontSize: 17, color: COLORS.text, fontWeight: '600' },
+  breakdownScoreWord: { fontSize: 15, color: COLORS.text, fontWeight: '600' },
+  breakdownSource: { fontSize: 13, color: COLORS.textMuted, marginTop: 4, lineHeight: 18 },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: COLORS.borderSoft,
+    marginVertical: 14
+  },
 
   cheapBox: {
-    backgroundColor: '#fff', borderColor: '#e6e3dc', borderWidth: 1,
-    borderRadius: 6, padding: 8, marginTop: 6
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.borderSoft,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10
   },
-  cheapTitle: { fontSize: 11, color: '#5f6368', fontWeight: '600', textTransform: 'uppercase', marginBottom: 2 },
-  cheapLine: { fontSize: 12, color: '#1a1a1a' },
+  cheapTitle: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+    letterSpacing: 1.0,
+    marginBottom: 6
+  },
+  cheapLine: { fontSize: 13, color: COLORS.text, lineHeight: 19 },
 
+  // ---- Counter-argument card ----
   counterBox: {
-    backgroundColor: '#fef3c7', borderColor: '#f59e0b', borderWidth: 1,
-    borderRadius: 8, padding: 12, marginTop: 12
+    backgroundColor: COLORS.counterBg,
+    borderColor: COLORS.mediumWarm,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 18,
+    ...cardShadow
   },
-  counterTitle: { fontSize: 12, color: '#92400e', fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 },
-  counterText: { fontSize: 14, color: '#1a1a1a' },
-  counterFootnote: { fontSize: 11, color: '#92400e', marginTop: 6, fontStyle: 'italic' },
+  counterTitle: {
+    fontSize: 12,
+    color: COLORS.mediumWarm,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginBottom: 8
+  },
+  counterText: { fontSize: 15, color: COLORS.text, lineHeight: 22 },
+  counterFootnote: { fontSize: 13, color: COLORS.textMuted, marginTop: 10, fontStyle: 'italic' },
 
-  // Deep Analysis
+  // ---- Deep Analysis CTA ----
+  deepCtaWrap: { gap: 8 },
   deepButton: {
-    backgroundColor: '#7c3aed', borderRadius: 8, padding: 12, alignItems: 'center'
+    backgroundColor: COLORS.deepTeal,
+    borderRadius: 999,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    ...cardShadow
   },
-  deepButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  deepHint: { fontSize: 12, color: '#5f6368', marginTop: 6, textAlign: 'center', fontStyle: 'italic' },
+  deepButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2
+  },
+  deepHint: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    lineHeight: 18,
+    paddingHorizontal: 4
+  },
 
   deepBox: {
-    backgroundColor: '#f5f3ff', borderColor: '#c4b5fd', borderWidth: 1,
-    borderRadius: 8, padding: 12, marginTop: 12
+    backgroundColor: COLORS.sageLight,
+    borderColor: COLORS.deepTealLight,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 18,
+    ...cardShadow
   },
-  deepHeader: { fontSize: 14, fontWeight: '700', color: '#5b21b6', textTransform: 'uppercase', marginBottom: 8 },
 
   judgeBox: {
-    backgroundColor: '#fff', borderColor: '#c4b5fd', borderWidth: 1,
-    borderRadius: 6, padding: 10, marginBottom: 8
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.borderSoft,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12
   },
-  judgeLabel: { fontSize: 11, color: '#5b21b6', fontWeight: '700', marginBottom: 4 },
-  judgeVerdict: { fontSize: 14, color: '#1a1a1a' },
+  judgeLabel: {
+    fontSize: 12,
+    color: COLORS.deepTeal,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginBottom: 6
+  },
+  judgeVerdict: { fontSize: 15, color: COLORS.text, lineHeight: 22 },
 
   agentCard: {
-    backgroundColor: '#fff', borderWidth: 1,
-    borderRadius: 6, padding: 10, marginTop: 6
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 10
   },
-  agentLabel: { fontSize: 12, fontWeight: '700', flex: 1 },
+  agentLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 1.0, flex: 1 },
   agentChevron: { fontSize: 14, fontWeight: '700' },
-  agentReasoning: { fontSize: 14, color: '#1a1a1a' },
-  agentEvidenceTitle: { fontSize: 11, color: '#5f6368', fontWeight: '600', textTransform: 'uppercase' },
-  agentEvidence: { fontSize: 13, color: '#1a1a1a', marginTop: 2, lineHeight: 18 },
+  agentReasoning: { fontSize: 15, color: COLORS.text, lineHeight: 22 },
+  agentEvidenceTitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+    letterSpacing: 1.0,
+    marginBottom: 4
+  },
+  agentEvidence: { fontSize: 14, color: COLORS.text, marginTop: 4, lineHeight: 20 },
 
   modelLimitation: {
-    fontSize: 11, color: '#5b21b6', marginTop: 8, fontStyle: 'italic', lineHeight: 16
+    fontSize: 13,
+    color: COLORS.deepTeal,
+    marginTop: 12,
+    fontStyle: 'italic',
+    lineHeight: 18
   },
 
-  tierBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, alignSelf: 'flex-start' },
-  tierBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  // ---- Publisher ----
+  publisherDomain: { fontSize: 17, fontWeight: '600', color: COLORS.text },
+  tierBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    alignSelf: 'flex-start'
+  },
+  tierBadgeText: { color: COLORS.white, fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
+
   verdictRow: {
-    backgroundColor: '#fafaf7', borderColor: '#e6e3dc', borderWidth: 1,
-    borderRadius: 6, padding: 10, marginTop: 6
-  },
-  verdictSource: { fontSize: 11, color: '#5f6368', fontWeight: '600', textTransform: 'uppercase', marginBottom: 2 },
-  verdictText: { fontSize: 14, color: '#1a1a1a' },
-  verdictDetails: { fontSize: 12, color: '#5f6368', marginTop: 2 },
-
-  disclaimer: { fontSize: 12, color: '#5f6368', fontStyle: 'italic' },
-  linkRow: { flexDirection: 'row', gap: 18, marginTop: 8 },
-  link: { color: '#2563eb', fontWeight: '500' },
-  errorTitle: { color: '#b91c1c', fontWeight: '600', marginBottom: 4 },
-  errorMessage: { color: '#1a1a1a' },
-  resetLink: { marginTop: 16 },
-  resetText: { color: '#2563eb', fontWeight: '600' },
-
-  // Feedback widget
-  feedbackBox: {
-    backgroundColor: '#fafaf7',
-    borderColor: '#e6e3dc',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.borderSoft,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 14,
     padding: 12,
-    marginTop: 16
+    marginTop: 8
+  },
+  sourceChip: {
+    backgroundColor: COLORS.sageLight,
+    borderColor: COLORS.sageBg,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3
+  },
+  sourceChipText: {
+    fontSize: 11,
+    color: COLORS.deepTeal,
+    fontWeight: '700',
+    letterSpacing: 0.4
+  },
+  verdictText: { fontSize: 14, color: COLORS.text, lineHeight: 20 },
+  verdictDetails: { fontSize: 13, color: COLORS.textMuted, marginTop: 3 },
+
+  disclaimer: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 4
+  },
+
+  // ---- Links / reset ----
+  link: { color: COLORS.deepTeal, fontWeight: '600', fontSize: 14 },
+  retryLink: { marginTop: 10, alignSelf: 'flex-start' },
+  errorTitle: {
+    color: COLORS.lowSoft,
+    fontWeight: '700',
+    fontSize: 16,
+    marginBottom: 6
+  },
+  errorMessage: { color: COLORS.text, fontSize: 14, lineHeight: 20 },
+  resetLink: { marginTop: 8, alignSelf: 'center' },
+  resetText: { color: COLORS.deepTeal, fontWeight: '600', fontSize: 14 },
+
+  // ---- Feedback widget ----
+  feedbackBox: {
+    backgroundColor: COLORS.cream,
+    borderColor: COLORS.borderSoft,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 18,
+    ...cardShadow
   },
   feedbackLabel: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#5f6368'
+    color: COLORS.text
   },
   feedbackThanks: {
-    fontSize: 13,
-    color: '#15803d',
+    fontSize: 14,
+    color: COLORS.deepTeal,
     fontStyle: 'italic'
   },
   feedbackButtons: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8
+    gap: 10,
+    marginTop: 12
   },
   feedbackButton: {
-    width: 60,
+    paddingHorizontal: 18,
     height: 44,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e6e3dc',
-    backgroundColor: '#fff',
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: COLORS.deepTealLight,
+    backgroundColor: COLORS.cream,
     alignItems: 'center',
     justifyContent: 'center'
   },
   feedbackButtonSelected: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#2563eb'
+    backgroundColor: COLORS.sageLight,
+    borderColor: COLORS.deepTeal
   },
   feedbackButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#1f2937'
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.deepTeal
+  },
+  feedbackButtonTextSelected: {
+    color: COLORS.deepTeal,
+    fontWeight: '700'
   },
   feedbackInput: {
-    backgroundColor: '#fff',
-    borderColor: '#e6e3dc',
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.borderSoft,
     borderWidth: 1,
-    borderRadius: 6,
-    padding: 8,
-    minHeight: 60,
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 72,
     fontSize: 14,
+    color: COLORS.text,
     textAlignVertical: 'top'
   }
 });
