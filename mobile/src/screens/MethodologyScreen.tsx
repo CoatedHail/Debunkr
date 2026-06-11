@@ -36,16 +36,16 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
           signatory list of certified fact-checkers. If we don't recognize
           the publisher, we fall back to article-level signals (HTTPS, byline
           present, article length, extracted publisher name). Fallback scores
-          are bounded 30–60 and the confidence indicator drops to "low".
+          are bounded 30–60 and the rating strength indicator drops to "low".
         </Text>
 
-        <Text style={styles.h2}>Content quality + bias + counter-argument</Text>
+        <Text style={styles.h2}>Article quality + tone & balance + devil's advocate</Text>
         <Text style={styles.p}>
           All three come from a single call to Claude (an AI model from
           Anthropic). The model reads the article and returns: a 0–100
-          quality score, a –5 to +5 bias estimate (LLM-estimated, low
-          confidence on its own), and the strongest argument that the
-          rating could be wrong. The counter-argument is always shown
+          quality score, a –5 to +5 tone & balance estimate (LLM-estimated, low
+          rating strength on its own), and the strongest argument that the
+          rating could be wrong. The devil's advocate is always shown
           because it trains media literacy.
         </Text>
 
@@ -80,12 +80,12 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
           4. Named entities (people, organizations, events) are checked
           against Wikipedia to catch fabricated names.{'\n'}
           5. A second LLM call synthesizes all the evidence into a
-          per-claim verdict (corroborated / contradicted / uncorroborated
+          per-claim verdict (corroborated / contradicted / no fact-checks found
           / mixed) and adjusts the article's overall score by up to ±30
           points.
         </Text>
 
-        <Text style={styles.h2}>Confidence</Text>
+        <Text style={styles.h2}>Rating strength</Text>
         <Text style={styles.p}>
           • High — publisher in 2+ datasets AND article successfully read.{'\n'}
           • Medium — 1 dataset, OR datasets known but article couldn't be read.{'\n'}
