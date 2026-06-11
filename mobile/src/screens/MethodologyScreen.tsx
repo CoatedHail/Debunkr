@@ -102,8 +102,9 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
 
         <Text style={styles.h2}>Feedback</Text>
         <Text style={styles.p}>
-          A 👍/👎 widget is coming in M6. For now, errors and bad ratings
-          can be reported to the developer directly.
+          Every result has Helpful / Not helpful buttons. Not helpful opens a
+          short comment box. Your feedback shapes future improvements to the
+          scoring and explanations.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -111,12 +112,12 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fafaf7' },
+  safe: { flex: 1, backgroundColor: '#F7F4EC' },
   container: { padding: 20, gap: 8 },
   back: { paddingVertical: 6 },
-  backText: { color: '#2563eb', fontWeight: '600' },
-  title: { fontSize: 26, fontWeight: '700', marginTop: 8 },
-  subtitle: { fontSize: 12, color: '#5f6368', marginBottom: 12, fontStyle: 'italic' },
-  h2: { fontSize: 16, fontWeight: '700', marginTop: 16, marginBottom: 4 },
-  p: { fontSize: 14, color: '#1a1a1a', lineHeight: 20 }
+  backText: { color: '#2F6B5C', fontWeight: '600' },
+  title: { fontSize: 26, fontWeight: '800', marginTop: 8, color: '#2F6B5C', letterSpacing: -0.3 },
+  subtitle: { fontSize: 13, color: '#6B7280', marginBottom: 12, fontStyle: 'italic' },
+  h2: { fontSize: 16, fontWeight: '700', marginTop: 16, marginBottom: 4, color: '#1F2937' },
+  p: { fontSize: 14, color: '#1F2937', lineHeight: 22 }
 });

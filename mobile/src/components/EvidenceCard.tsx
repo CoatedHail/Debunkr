@@ -11,12 +11,29 @@ import type {
 const COLLAPSED_REASONING_MAX = 120;
 const COLLAPSED_CITATION_COUNT = 3;
 
+// Match the CheckScreen brand palette.
+const COLORS = {
+  sageBg:        '#A8D5BA',
+  sageLight:     '#D7EAD9',
+  cream:         '#FAF4E6',
+  deepTeal:      '#2F6B5C',
+  deepTealLight: '#4A8A78',
+  high:          '#3FA66B',
+  mediumWarm:    '#E89B4C',
+  lowSoft:       '#D26464',
+  text:          '#1F2937',
+  textMuted:     '#6B7280',
+  textDim:       '#9CA3AF',
+  borderSoft:    '#EFE9DC',
+  white:         '#FFFFFF'
+};
+
 function verdictColor(v: EvidenceVerdict): string {
   switch (v) {
-    case 'corroborated':   return '#34A853';
-    case 'contradicted':   return '#D93025';
-    case 'mixed':          return '#F9AB00';
-    case 'uncorroborated': return '#5F6368';
+    case 'corroborated':   return COLORS.high;
+    case 'contradicted':   return COLORS.lowSoft;
+    case 'mixed':          return COLORS.mediumWarm;
+    case 'uncorroborated': return COLORS.textMuted;
   }
 }
 
@@ -31,9 +48,9 @@ function verdictLabel(v: EvidenceVerdict): string {
 
 function confidenceColor(c: Confidence): string {
   switch (c) {
-    case 'high':   return '#15803d';
-    case 'medium': return '#b45309';
-    case 'low':    return '#5f6368';
+    case 'high':   return COLORS.high;
+    case 'medium': return COLORS.mediumWarm;
+    case 'low':    return COLORS.textMuted;
   }
 }
 
@@ -47,9 +64,9 @@ function confidenceLabel(c: Confidence): string {
 
 function supportColor(s: CitationSupport): string {
   switch (s) {
-    case 'agrees':      return '#15803d';
-    case 'contradicts': return '#b91c1c';
-    case 'context':     return '#5f6368';
+    case 'agrees':      return COLORS.high;
+    case 'contradicts': return COLORS.lowSoft;
+    case 'context':     return COLORS.textMuted;
   }
 }
 
@@ -71,6 +88,7 @@ function CitationRow({ citation }: { citation: EvidenceCitation }) {
   return (
     <Pressable
       accessibilityRole="link"
+      accessibilityLabel={`Open citation from ${citation.source}`}
       onPress={() => { Linking.openURL(citation.url); }}
       style={({ pressed }) => [styles.citationRow, pressed && styles.pressed]}
     >
@@ -106,7 +124,7 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.header}>External Evidence</Text>
+      <Text style={styles.header}>EXTERNAL EVIDENCE</Text>
 
       <View style={styles.topRow}>
         <View style={[styles.verdictBadge, { backgroundColor: vColor }]}>
@@ -131,7 +149,7 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
         )}
       </Pressable>
 
-      <Text style={styles.sectionLabel}>Citations</Text>
+      <Text style={styles.sectionLabel}>CITATIONS</Text>
       {citations.length === 0 ? (
         <Text style={styles.empty}>No citations were collected for these claims.</Text>
       ) : (
@@ -141,6 +159,7 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
           ))}
           {hasMore && (
             <Pressable
+              accessibilityRole="button"
               onPress={() => setAllCitations(!allCitations)}
               style={({ pressed }) => [styles.showMore, pressed && styles.pressed]}
             >
@@ -157,22 +176,32 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
   );
 }
 
+const cardShadow = {
+  shadowColor: '#1F2937',
+  shadowOpacity: 0.06,
+  shadowOffset: { width: 0, height: 2 },
+  shadowRadius: 8,
+  elevation: 2
+};
+
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
-    borderColor: '#c4b5fd',
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.borderSoft,
     borderWidth: 1,
-    borderRadius: 6,
-    padding: 10,
-    marginTop: 6,
-    marginBottom: 8
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    ...cardShadow
   },
   header: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#5b21b6',
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    marginBottom: 8
+    marginBottom: 10
   },
   topRow: {
     flexDirection: 'row',
@@ -181,97 +210,103 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap'
   },
   verdictBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 999,
     alignSelf: 'flex-start'
   },
   verdictBadgeText: {
-    color: '#fff',
+    color: COLORS.white,
     fontSize: 12,
-    fontWeight: '700'
+    fontWeight: '700',
+    letterSpacing: 0.3
   },
   confidenceChip: {
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    alignSelf: 'flex-start'
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.white
   },
   confidenceChipText: {
-    fontSize: 10,
-    fontWeight: '700'
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4
   },
   reasoning: {
-    fontSize: 14,
-    color: '#1a1a1a',
-    marginTop: 10,
-    lineHeight: 20
+    fontSize: 15,
+    color: COLORS.text,
+    marginTop: 12,
+    lineHeight: 22
   },
   expandHint: {
-    fontSize: 12,
-    color: '#2563eb',
-    fontWeight: '500',
-    marginTop: 4
+    fontSize: 13,
+    color: COLORS.deepTeal,
+    fontWeight: '600',
+    marginTop: 6
   },
   sectionLabel: {
-    color: '#5f6368',
-    fontSize: 11,
+    color: COLORS.textMuted,
+    fontSize: 12,
     fontWeight: '600',
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    marginTop: 12,
-    marginBottom: 4
+    marginTop: 16,
+    marginBottom: 6
   },
   empty: {
-    fontSize: 13,
-    color: '#5f6368',
+    fontSize: 14,
+    color: COLORS.textMuted,
     fontStyle: 'italic'
   },
   citationRow: {
-    backgroundColor: '#fafaf7',
-    borderColor: '#e6e3dc',
+    backgroundColor: COLORS.cream,
+    borderColor: COLORS.borderSoft,
     borderWidth: 1,
-    borderRadius: 6,
-    padding: 10,
-    marginTop: 6
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 8
   },
   citationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    marginBottom: 4
+    marginBottom: 6
   },
   publisherChip: {
-    backgroundColor: '#f5f3ff',
-    borderColor: '#c4b5fd',
+    backgroundColor: COLORS.sageLight,
+    borderColor: COLORS.sageBg,
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     flexShrink: 1
   },
   publisherChipText: {
     fontSize: 11,
-    color: '#5b21b6',
-    fontWeight: '600'
+    color: COLORS.deepTeal,
+    fontWeight: '700',
+    letterSpacing: 0.3
   },
   supportTag: {
-    fontSize: 11,
-    fontWeight: '700'
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3
   },
   snippet: {
-    fontSize: 13,
-    color: '#1a1a1a',
-    lineHeight: 18
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20
   },
   showMore: {
-    marginTop: 8,
+    marginTop: 10,
     alignSelf: 'flex-start'
   },
   showMoreText: {
-    fontSize: 12,
-    color: '#2563eb',
+    fontSize: 13,
+    color: COLORS.deepTeal,
     fontWeight: '600'
   },
   pressed: {
