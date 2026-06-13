@@ -19,7 +19,7 @@ export function LimitationsScreen({ onBack }: LimitationsScreenProps) {
         </Pressable>
 
         <Text style={styles.title}>Limitations</Text>
-        <Text style={styles.subtitle}>Stub content — final wording lands at launch (M7).</Text>
+        <Text style={styles.subtitle}>What CredCheck does — and what it can't.</Text>
 
         <Text style={styles.bullet}>• AI analysis. Output may contain errors. Treat as a starting point, not a verdict.</Text>
         <Text style={styles.bullet}>• Paywalled or JavaScript-only articles often can not be read by the backend. Rating strength drops or the check fails.</Text>
