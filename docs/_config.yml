@@ -1,0 +1,7 @@
+theme: jekyll-theme-cayman
+title: CredCheck
+description: Article credibility checker
+plugins:
+  - jekyll-feed
+exclude:
+  - superpowers/
