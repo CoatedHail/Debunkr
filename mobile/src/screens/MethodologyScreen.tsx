@@ -19,7 +19,7 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
         </Pressable>
 
         <Text style={styles.title}>How this works</Text>
-        <Text style={styles.subtitle}>Stub content — final wording lands at launch (M7).</Text>
+        <Text style={styles.subtitle}>The signals behind your score, in plain English.</Text>
 
         <Text style={styles.h2}>The overall score</Text>
         <Text style={styles.p}>
@@ -96,8 +96,10 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
 
         <Text style={styles.h2}>What we don't do yet</Text>
         <Text style={styles.p}>
-          No caching, no rate limit, no real bias dataset (AllSides license
-          pending), no domain-age WHOIS lookup. All deferred to M6.
+          No real bias dataset (we use an LLM estimate today), no domain-age
+          lookup, and our Tier-1 publisher allowlist is hand-curated and
+          US/UK-skewed. Coverage in other languages and regions is the next
+          focus area.
         </Text>
 
         <Text style={styles.h2}>Feedback</Text>
