@@ -1,9 +1,11 @@
 import {
+  Linking,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Text
+  Text,
+  View
 } from 'react-native';
 
 export interface MethodologyScreenProps {
@@ -108,6 +110,26 @@ export function MethodologyScreen({ onBack }: MethodologyScreenProps) {
           short comment box. Your feedback shapes future improvements to the
           scoring and explanations.
         </Text>
+
+        <View style={styles.legalSection}>
+          <Text style={styles.h2}>Legal</Text>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => Linking.openURL('https://coatedhail.github.io/Fake_News_Detector/legal/privacy')}
+          >
+            <Text style={styles.link}>Privacy Policy</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => Linking.openURL('https://coatedhail.github.io/Fake_News_Detector/legal/terms')}
+          >
+            <Text style={styles.link}>Terms of Service</Text>
+          </Pressable>
+          <Text style={styles.legalNote}>
+            Both open in Safari. Hosted publicly so they can be updated without
+            an app release.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -121,5 +143,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: '800', marginTop: 8, color: '#2F6B5C', letterSpacing: -0.3 },
   subtitle: { fontSize: 13, color: '#6B7280', marginBottom: 12, fontStyle: 'italic' },
   h2: { fontSize: 16, fontWeight: '700', marginTop: 16, marginBottom: 4, color: '#1F2937' },
-  p: { fontSize: 14, color: '#1F2937', lineHeight: 22 }
+  p: { fontSize: 14, color: '#1F2937', lineHeight: 22 },
+  legalSection: { marginTop: 8, gap: 4 },
+  link: { fontSize: 14, color: '#2F6B5C', fontWeight: '600', paddingVertical: 6, textDecorationLine: 'underline' },
+  legalNote: { fontSize: 12, color: '#6B7280', marginTop: 4, lineHeight: 18 }
 });
