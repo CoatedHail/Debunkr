@@ -40,6 +40,27 @@ let runFactCheckFn: ((articleText: string) => Promise<FactCheckRunResult>) | und
 
 const articleTextByJob = new Map<string, string>();
 
+const EXCERPT_MAX_CHARS = 280;
+
+/**
+ * Build a short excerpt from the extracted article body:
+ *   1. collapse all whitespace to single spaces, trim
+ *   2. if <= EXCERPT_MAX_CHARS, return as-is
+ *   3. otherwise trim at the last full word inside the budget and append "…"
+ *
+ * Returns undefined when the input has no usable text so callers can leave
+ * the field unset rather than emitting an empty string.
+ */
+function buildExcerpt(rawText: string): string | undefined {
+  const normalized = rawText.replace(/\s+/g, ' ').trim();
+  if (!normalized) return undefined;
+  if (normalized.length <= EXCERPT_MAX_CHARS) return normalized;
+  const slice = normalized.slice(0, EXCERPT_MAX_CHARS);
+  const lastSpace = slice.lastIndexOf(' ');
+  const wordTrimmed = lastSpace > 0 ? slice.slice(0, lastSpace) : slice;
+  return wordTrimmed.replace(/[\s.,;:!?-]+$/, '') + '…';
+}
+
 export function setTestDeps(deps: {
   store?: JobStore;
   client?: Anthropic | null;
@@ -144,13 +165,16 @@ async function runPipeline(jobId: string, url: string, deviceId: string, ip: str
     return;
   }
 
+  const excerpt = buildExcerpt(extraction.article.text);
+
   store.update(jobId, {
     status: 'partial',
     publisher,
     article: {
       title: extraction.article.title,
       byline: extraction.article.byline,
-      siteName: extraction.article.siteName
+      siteName: extraction.article.siteName,
+      excerpt
     }
   });
 
@@ -203,7 +227,8 @@ async function runPipeline(jobId: string, url: string, deviceId: string, ip: str
     article: {
       title: extraction.article.title,
       byline: extraction.article.byline,
-      siteName: extraction.article.siteName
+      siteName: extraction.article.siteName,
+      excerpt
     },
     publisher,
     overall,

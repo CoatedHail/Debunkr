@@ -106,7 +106,7 @@ function tierLabel(tier: ReliabilityTier): string {
     case 'medium':  return 'Mixed reputation';
     case 'mixed':   return 'Mixed reputation';
     case 'low':     return 'Generally unreliable';
-    case 'unknown': return 'Unknown publisher';
+    case 'unknown': return 'Not in our curated list';
   }
 }
 
@@ -397,6 +397,12 @@ function PublisherDetailBlock({ publisher }: { publisher: PublisherLookup }) {
           ))}
         </View>
       )}
+      {publisher.reliabilityTier === 'unknown' && (
+        <Text style={styles.unknownCaveat}>
+          Common reasons: local newspaper, niche blog, foreign-language site, or new
+          publication. The score above relies on article-level signals only.
+        </Text>
+      )}
     </View>
   );
 }
@@ -576,6 +582,11 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
                 <View style={styles.card}>
                   <SectionTitle>ARTICLE</SectionTitle>
                   <Text style={styles.value}>{polling.article.title}</Text>
+                  {polling.article.excerpt && (
+                    <Text style={styles.articleExcerpt} numberOfLines={3}>
+                      {polling.article.excerpt}
+                    </Text>
+                  )}
                 </View>
               )}
               <View style={styles.card}>
@@ -597,6 +608,11 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
                 <View style={styles.card}>
                   <SectionTitle>ARTICLE</SectionTitle>
                   <Text style={styles.value}>{completeJob.article.title}</Text>
+                  {completeJob.article.excerpt && (
+                    <Text style={styles.articleExcerpt} numberOfLines={3}>
+                      {completeJob.article.excerpt}
+                    </Text>
+                  )}
                 </View>
               )}
 
@@ -857,6 +873,12 @@ const styles = StyleSheet.create({
   inline: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
   muted: { color: COLORS.textMuted, fontSize: 14 },
   value: { fontSize: 15, color: COLORS.text, lineHeight: 22 },
+  articleExcerpt: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: COLORS.textMuted,
+    marginTop: 8
+  },
 
   // ---- Headline (score) ----
   headlineWrap: { alignItems: 'flex-start' },
@@ -1045,6 +1067,14 @@ const styles = StyleSheet.create({
   },
   verdictText: { fontSize: 14, color: COLORS.text, lineHeight: 20 },
   verdictDetails: { fontSize: 13, color: COLORS.textMuted, marginTop: 3 },
+
+  unknownCaveat: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+    marginTop: 12
+  },
 
   disclaimer: {
     fontSize: 13,

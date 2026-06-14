@@ -38,6 +38,8 @@ export interface ArticleMetadata {
   title?: string;
   byline?: string;
   siteName?: string;
+  /** First ~280 chars of the article body, word-trimmed, with "…" when truncated. */
+  excerpt?: string;
 }
 
 export type ReliabilityTier = 'high' | 'medium' | 'mixed' | 'low' | 'unknown';
