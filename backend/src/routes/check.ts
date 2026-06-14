@@ -15,6 +15,11 @@ import { createRateLimiter, type RateLimiter } from '../services/rate-limiter.js
 import { createCostTracker, type CostTracker } from '../services/cost-tracker.js';
 import { createCache, articleTextHash, ttlForUrl, type Cache } from '../services/cache.js';
 import {
+  researchPublisher as defaultResearchPublisher,
+  type PublisherResearchResult
+} from '../services/publisher-research.js';
+import { researchPublisherStub } from '../services/publisher-research-stub.js';
+import {
   sourceRepFromTier,
   computeOverall,
   bucketLabel,
@@ -37,8 +42,45 @@ let client: Anthropic | null = hasRealLlm()
   : null;
 let extractorOpts: { skipSsrfCheck?: boolean } = {};
 let runFactCheckFn: ((articleText: string) => Promise<FactCheckRunResult>) | undefined;
+let researchPublisherFn: (domain: string) => Promise<PublisherResearchResult> = async (domain) => {
+  if (client) {
+    return defaultResearchPublisher(domain, { client, model: env.anthropicModel });
+  }
+  return researchPublisherStub(domain);
+};
 
 const articleTextByJob = new Map<string, string>();
+
+// Simple in-memory cache keyed by canonical domain. 24h TTL.
+// Lives at module scope so repeated checks of the same unknown publisher
+// (across different jobIds) don't re-bill the AI call.
+const PUBLISHER_RESEARCH_TTL_MS = 24 * 60 * 60 * 1000;
+interface ResearchCacheEntry {
+  value: PublisherResearchResult;
+  expiresAt: number;
+}
+const publisherResearchCache = new Map<string, ResearchCacheEntry>();
+
+function getCachedResearch(domain: string): PublisherResearchResult | undefined {
+  const entry = publisherResearchCache.get(domain);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    publisherResearchCache.delete(domain);
+    return undefined;
+  }
+  return entry.value;
+}
+
+function setCachedResearch(domain: string, value: PublisherResearchResult): void {
+  publisherResearchCache.set(domain, {
+    value,
+    expiresAt: Date.now() + PUBLISHER_RESEARCH_TTL_MS
+  });
+}
+
+function clearPublisherResearchCache(): void {
+  publisherResearchCache.clear();
+}
 
 const EXCERPT_MAX_CHARS = 280;
 
@@ -70,6 +112,7 @@ export function setTestDeps(deps: {
   cache?: Cache;
   skipSsrfCheck?: boolean;
   runFactCheckFn?: ((articleText: string) => Promise<FactCheckRunResult>) | null;
+  researchPublisherFn?: ((domain: string) => Promise<PublisherResearchResult>) | null;
 }): void {
   if (deps.store) store = deps.store;
   if (deps.client !== undefined) client = deps.client;
@@ -81,7 +124,16 @@ export function setTestDeps(deps: {
   if (deps.runFactCheckFn !== undefined) {
     runFactCheckFn = deps.runFactCheckFn ?? undefined;
   }
+  if (deps.researchPublisherFn !== undefined) {
+    researchPublisherFn = deps.researchPublisherFn ?? (async (domain) => {
+      if (client) {
+        return defaultResearchPublisher(domain, { client, model: env.anthropicModel });
+      }
+      return researchPublisherStub(domain);
+    });
+  }
   articleTextByJob.clear();
+  clearPublisherResearchCache();
 }
 
 export const checkRoutes = new Hono();
@@ -427,4 +479,112 @@ checkRoutes.post('/check/:jobId/deep', async (c) => {
   });
 
   return c.json({ jobId, deepStatus: 'pending' }, 202);
+});
+
+/**
+ * POST /api/check/:jobId/publisher-research — opt-in AI lookup for unknown publishers.
+ *
+ * Body: { deviceId: string }
+ *
+ * - 404 if jobId unknown
+ * - 400 NOT_APPLICABLE unless publisher.reliabilityTier === 'unknown' and canonicalDomain present
+ * - 429 RATE_LIMITED (shared with the single-check bucket)
+ * - 503 BUDGET_EXCEEDED (shared monthly cost cap)
+ * - 200 with { summary, sentiment, citations } on success; also persists onto
+ *   job.publisher.aiResearch so subsequent GETs include it.
+ *
+ * Cached per canonical domain for 24h at module scope.
+ */
+checkRoutes.post('/check/:jobId/publisher-research', async (c) => {
+  const jobId = c.req.param('jobId');
+  const job = store.get(jobId);
+  if (!job) {
+    const err: ApiError = {
+      error: { code: 'INTERNAL_ERROR', message: 'Unknown jobId.', retryable: false }
+    };
+    return c.json(err, 404);
+  }
+
+  const publisher = job.publisher;
+  if (!publisher || publisher.reliabilityTier !== 'unknown' || !publisher.canonicalDomain) {
+    const err: ApiError = {
+      error: {
+        code: 'NOT_APPLICABLE',
+        message: 'Publisher research is only available for unknown publishers.',
+        retryable: false
+      }
+    };
+    return c.json(err, 400);
+  }
+
+  const body = await c.req.json().catch(() => null) ?? {};
+  const deviceId = typeof body.deviceId === 'string' ? body.deviceId : 'unknown';
+  const ip = clientIp(c);
+
+  // Reuse the existing single-check rate-limit bucket — don't introduce a new kind.
+  const rl = rateLimiter.consume(deviceId, ip, 'single');
+  if (!rl.allowed) {
+    const err: ApiError = {
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Daily check limit reached. Try again after midnight UTC.',
+        retryable: true,
+        retryAfter: rl.retryAfter
+      }
+    };
+    return c.json(err, 429);
+  }
+
+  const budget = await costTracker.check();
+  if (budget.exceeded) {
+    const err: ApiError = {
+      error: {
+        code: 'BUDGET_EXCEEDED',
+        message: `Service paused: monthly AI budget exceeded ($${budget.monthlySpendUsd.toFixed(2)}/$${budget.budgetUsd}). Try next month.`,
+        retryable: false
+      }
+    };
+    return c.json(err, 503);
+  }
+
+  const domain = publisher.canonicalDomain;
+  let result = getCachedResearch(domain);
+
+  if (!result) {
+    try {
+      result = await researchPublisherFn(domain);
+    } catch {
+      // researchPublisher catches its own errors and returns the safe default,
+      // but guard against a misbehaving DI hook in tests just in case.
+      result = {
+        summary: 'Publisher research unavailable.',
+        sentiment: 'unclear',
+        citations: []
+      };
+    }
+    setCachedResearch(domain, result);
+
+    if (result.usage && (result.usage.input_tokens > 0 || result.usage.output_tokens > 0)) {
+      await costTracker.record({
+        jobId,
+        deviceId,
+        ip,
+        model: env.anthropicModel,
+        inputTokens: result.usage.input_tokens,
+        outputTokens: result.usage.output_tokens
+      });
+    }
+  }
+
+  // Persist onto the job so polling clients see it on the next GET.
+  const aiResearch = {
+    summary: result.summary,
+    sentiment: result.sentiment,
+    citations: result.citations
+  };
+  store.update(jobId, {
+    publisher: { ...publisher, aiResearch }
+  });
+
+  return c.json(aiResearch, 200);
 });

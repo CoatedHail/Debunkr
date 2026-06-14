@@ -589,3 +589,200 @@ describe('Production hardening wiring', () => {
     expect(body.error.code).toBe('BUDGET_EXCEEDED');
   });
 });
+
+describe('POST /api/check/:jobId/publisher-research', () => {
+  const UNKNOWN_URL = 'https://some-random-unknown-blog.example/post';
+  const SAMPLE_RESEARCH = {
+    summary: 'A small independent outlet with no major controversies on record.',
+    sentiment: 'positive' as const,
+    citations: [{ url: 'https://example.org/a', title: 'About' }],
+    usage: { input_tokens: 800, output_tokens: 120 }
+  };
+
+  async function submitAndWait(url: string): Promise<string> {
+    const submit = await app.request('/api/check', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url, deviceId: 'd1' })
+    });
+    const { jobId } = (await submit.json()) as any;
+    for (let i = 0; i < 50; i++) {
+      const r = await app.request(`/api/check/${jobId}`);
+      const body = (await r.json()) as any;
+      if (body.status === 'complete' || body.status === 'failed') return jobId;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return jobId;
+  }
+
+  it('returns 404 INTERNAL_ERROR for unknown jobId', async () => {
+    const res = await app.request('/api/check/unknown/publisher-research', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: 'd1' })
+    });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as any;
+    expect(body.error.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('returns 400 NOT_APPLICABLE when publisher is not unknown', async () => {
+    const researchSpy = jest.fn(async () => SAMPLE_RESEARCH);
+    setTestDeps({
+      store: createJobStore(),
+      client: mockClient() as any,
+      rateLimiter: createRateLimiter(),
+      costTracker: mockCostTracker() as any,
+      cache: createCache(),
+      skipSsrfCheck: true,
+      researchPublisherFn: researchSpy
+    });
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+
+    // nytimes.com is curated → high tier
+    const jobId = await submitAndWait('https://www.nytimes.com/2025/x.html');
+
+    const res = await app.request(`/api/check/${jobId}/publisher-research`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: 'd1' })
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as any;
+    expect(body.error.code).toBe('NOT_APPLICABLE');
+    expect(researchSpy).not.toHaveBeenCalled();
+  });
+
+  it('happy path: returns research, persists onto job, records cost', async () => {
+    const researchSpy = jest.fn(async () => SAMPLE_RESEARCH);
+    const recordedCosts: any[] = [];
+    setTestDeps({
+      store: createJobStore(),
+      client: mockClient() as any,
+      rateLimiter: createRateLimiter(),
+      costTracker: {
+        check: async () => ({ exceeded: false, monthlySpendUsd: 0, budgetUsd: 100 }),
+        record: async (c: any) => { recordedCosts.push(c); }
+      } as any,
+      cache: createCache(),
+      skipSsrfCheck: true,
+      researchPublisherFn: researchSpy
+    });
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+
+    const jobId = await submitAndWait(UNKNOWN_URL);
+
+    const res = await app.request(`/api/check/${jobId}/publisher-research`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: 'd1' })
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.summary).toContain('small independent outlet');
+    expect(body.sentiment).toBe('positive');
+    expect(body.citations).toHaveLength(1);
+    // No usage field leaks to clients.
+    expect(body.usage).toBeUndefined();
+
+    // Persisted onto the job.
+    const after = await app.request(`/api/check/${jobId}`);
+    const job = (await after.json()) as any;
+    expect(job.publisher.aiResearch).toBeDefined();
+    expect(job.publisher.aiResearch.summary).toContain('small independent outlet');
+    expect(job.publisher.reliabilityTier).toBe('unknown');
+
+    // Cost recorded.
+    const recorded = recordedCosts.find(
+      (c) => c.inputTokens === 800 && c.outputTokens === 120
+    );
+    expect(recorded).toBeDefined();
+    expect(recorded.jobId).toBe(jobId);
+
+    expect(researchSpy).toHaveBeenCalledTimes(1);
+    expect(researchSpy).toHaveBeenCalledWith(expect.stringContaining('unknown-blog.example'));
+  });
+
+  it('caches by domain — second call within TTL does not re-invoke the service', async () => {
+    const researchSpy = jest.fn(async () => SAMPLE_RESEARCH);
+    setTestDeps({
+      store: createJobStore(),
+      client: mockClient() as any,
+      rateLimiter: createRateLimiter(),
+      costTracker: mockCostTracker() as any,
+      cache: createCache(),
+      skipSsrfCheck: true,
+      researchPublisherFn: researchSpy
+    });
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+
+    const jobIdA = await submitAndWait(UNKNOWN_URL);
+    const resA = await app.request(`/api/check/${jobIdA}/publisher-research`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: 'd1' })
+    });
+    expect(resA.status).toBe(200);
+    expect(researchSpy).toHaveBeenCalledTimes(1);
+
+    // Submit a different job for the same unknown domain — should hit the cache.
+    const jobIdB = await submitAndWait(UNKNOWN_URL);
+    expect(jobIdB).not.toBe(jobIdA);
+    const resB = await app.request(`/api/check/${jobIdB}/publisher-research`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: 'd1' })
+    });
+    expect(resB.status).toBe(200);
+    // Still only one underlying call.
+    expect(researchSpy).toHaveBeenCalledTimes(1);
+
+    const bodyB = (await resB.json()) as any;
+    expect(bodyB.summary).toContain('small independent outlet');
+  });
+
+  it('returns 429 RATE_LIMITED when single-check bucket is exhausted', async () => {
+    const researchSpy = jest.fn(async () => SAMPLE_RESEARCH);
+    setTestDeps({
+      store: createJobStore(),
+      client: mockClient() as any,
+      rateLimiter: createRateLimiter(),
+      costTracker: mockCostTracker() as any,
+      cache: createCache(),
+      skipSsrfCheck: true,
+      researchPublisherFn: researchSpy
+    });
+    (globalThis as any).fetch = jest.fn(async () =>
+      new Response(SAMPLE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })
+    );
+
+    const jobId = await submitAndWait(UNKNOWN_URL);
+
+    // Swap in an always-deny limiter and clear cache by re-setting deps for the
+    // remaining state, keeping the same job store and the same researchSpy so we
+    // can assert it never gets called.
+    setTestDeps({
+      rateLimiter: { consume: () => ({ allowed: false, remaining: 0, retryAfter: 3600 }) },
+      researchPublisherFn: researchSpy
+    });
+
+    const res = await app.request(`/api/check/${jobId}/publisher-research`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId: 'd1' })
+    });
+    // The job is gone because setTestDeps reset the store implicitly? Check:
+    // setTestDeps only resets store when deps.store is provided. Good — the
+    // existing job survives.
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as any;
+    expect(body.error.code).toBe('RATE_LIMITED');
+    expect(researchSpy).not.toHaveBeenCalled();
+  });
+});
