@@ -41,6 +41,8 @@ export interface ArticleMetadata {
   title?: string;
   byline?: string;
   siteName?: string;
+  /** First ~280 chars of the article body, whitespace-normalized, trimmed at last full word, "…" appended if truncated. */
+  excerpt?: string;
 }
 
 export type ReliabilityTier = 'high' | 'medium' | 'mixed' | 'low' | 'unknown';
