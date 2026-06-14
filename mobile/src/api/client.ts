@@ -1,7 +1,8 @@
 import type {
   ApiError,
   CheckResponseAccepted,
-  JobResult
+  JobResult,
+  PublisherResearch
 } from '../types/api';
 import { API_BASE_URL } from '../config';
 
@@ -117,6 +118,39 @@ export async function startDeep(jobId: string): Promise<ApiResult<{ jobId: strin
     };
   }
   return { ok: true, value: body as { jobId: string; deepStatus: 'pending' } };
+}
+
+export async function requestPublisherResearch(
+  jobId: string,
+  deviceId: string
+): Promise<ApiResult<PublisherResearch>> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}/api/check/${jobId}/publisher-research`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deviceId })
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Network error — is the backend running?',
+        retryable: true
+      }
+    };
+  }
+
+  const body = (await parseJsonSafe(res)) as PublisherResearch | ApiError | null;
+  if (!res.ok) {
+    if (body && 'error' in body) return { ok: false, error: body.error };
+    return {
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: `HTTP ${res.status}`, retryable: false }
+    };
+  }
+  return { ok: true, value: body as PublisherResearch };
 }
 
 export async function submitFeedback(

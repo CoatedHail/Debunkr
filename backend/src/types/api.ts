@@ -14,7 +14,8 @@ export type ErrorCode =
   | 'BUDGET_EXCEEDED'
   | 'UNSUPPORTED_CONTENT_TYPE'
   | 'INTERNAL_ERROR'
-  | 'JOB_NOT_COMPLETE';
+  | 'JOB_NOT_COMPLETE'
+  | 'NOT_APPLICABLE';
 
 export interface ApiError {
   error: {
@@ -54,10 +55,29 @@ export interface DatasetVerdict {
   link?: string;
 }
 
+export type PublisherResearchSentiment = 'positive' | 'mixed' | 'negative' | 'unclear';
+
+export interface PublisherResearchCitation {
+  url: string;
+  title: string;
+}
+
+/**
+ * Opt-in AI-powered research about an unknown publisher.
+ * Populated after the client calls POST /api/check/:jobId/publisher-research.
+ */
+export interface PublisherResearch {
+  summary: string;
+  sentiment: PublisherResearchSentiment;
+  citations: PublisherResearchCitation[];
+}
+
 export interface PublisherLookup {
   canonicalDomain: string | null;
   reliabilityTier: ReliabilityTier;
   verdicts: DatasetVerdict[];
+  /** Set only after the user opts in to AI publisher research. */
+  aiResearch?: PublisherResearch;
 }
 
 export type OverallBucket =

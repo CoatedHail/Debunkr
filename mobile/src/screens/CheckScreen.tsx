@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -9,7 +10,7 @@ import {
   TextInput,
   View
 } from 'react-native';
-import { submitCheck, getJob, startDeep, submitFeedback } from '../api/client';
+import { submitCheck, getJob, startDeep, submitFeedback, requestPublisherResearch } from '../api/client';
 import { getDeviceId } from '../lib/device-id';
 import { EvidenceCard } from '../components/EvidenceCard';
 import type {
@@ -20,6 +21,8 @@ import type {
   JobResult,
   OverallBucket,
   PublisherLookup,
+  PublisherResearch,
+  PublisherResearchSentiment,
   ReliabilityTier
 } from '../types/api';
 
@@ -371,8 +374,114 @@ function BreakdownBlock({ job }: { job: JobResult }) {
   );
 }
 
+function sentimentChipColor(sentiment: PublisherResearchSentiment): { bg: string; fg: string } {
+  switch (sentiment) {
+    case 'positive': return { bg: '#DFF1E5', fg: COLORS.high };
+    case 'mixed':    return { bg: '#FBE9D5', fg: COLORS.mediumWarm };
+    case 'negative': return { bg: '#F6DCDC', fg: COLORS.lowSoft };
+    case 'unclear':  return { bg: '#EEEEEE', fg: COLORS.textMuted };
+  }
+}
+
+function sentimentLabel(sentiment: PublisherResearchSentiment): string {
+  switch (sentiment) {
+    case 'positive': return 'Mostly positive';
+    case 'mixed':    return 'Mixed signals';
+    case 'negative': return 'Concerning';
+    case 'unclear':  return 'Not enough info';
+  }
+}
+
+interface AiResearchHandlers {
+  jobId: string;
+  inFlight: boolean;
+  error: string | null;
+  onLookup: () => void;
+}
+
+function AiResearchSection({
+  research,
+  handlers
+}: {
+  research?: PublisherResearch;
+  handlers?: AiResearchHandlers;
+}) {
+  if (research) {
+    const { bg, fg } = sentimentChipColor(research.sentiment);
+    return (
+      <View style={styles.aiResearchBox}>
+        <Text style={styles.aiResearchLabel}>WHAT THE WEB SAYS</Text>
+        <Text style={styles.aiResearchSummary}>{research.summary}</Text>
+        <View style={[styles.sentimentChip, { backgroundColor: bg }]}>
+          <Text style={[styles.sentimentChipText, { color: fg }]}>
+            {sentimentLabel(research.sentiment)}
+          </Text>
+        </View>
+        {research.citations.length > 0 && (
+          <View style={styles.citationList}>
+            {research.citations.slice(0, 3).map((cite, i) => (
+              <Pressable
+                key={i}
+                accessibilityRole="link"
+                accessibilityLabel={`Open citation: ${cite.title}`}
+                onPress={() => { Linking.openURL(cite.url).catch(() => {}); }}
+                style={({ pressed }) => [styles.citationRow, pressed && styles.pressed]}
+              >
+                <Text style={styles.citationTitle} numberOfLines={2}>{cite.title}</Text>
+                <Text style={styles.citationUrl} numberOfLines={1}>{cite.url}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+        <Text style={styles.aiResearchFootnote}>
+          AI-summarized from independent reporting. Cached for 24 hours.
+        </Text>
+      </View>
+    );
+  }
+
+  if (!handlers) return null;
+
+  return (
+    <View style={{ marginTop: 12 }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Look up this publisher with AI web search"
+        disabled={handlers.inFlight}
+        onPress={handlers.onLookup}
+        style={({ pressed }) => [
+          styles.lookupButton,
+          pressed && styles.pressed,
+          handlers.inFlight && styles.lookupButtonDisabled
+        ]}
+      >
+        {handlers.inFlight ? (
+          <View style={styles.inline}>
+            <ActivityIndicator color={COLORS.deepTeal} />
+            <Text style={styles.lookupButtonText}>Looking up…</Text>
+          </View>
+        ) : (
+          <Text style={styles.lookupButtonText}>Look up this publisher</Text>
+        )}
+      </Pressable>
+      <Text style={styles.lookupHint}>
+        Asks Claude to search the web for the publisher's reputation. One call per domain.
+      </Text>
+      {handlers.error && (
+        <Text style={styles.lookupError}>{handlers.error}</Text>
+      )}
+    </View>
+  );
+}
+
 // ---- Publisher block ------------------------------------------------------
-function PublisherDetailBlock({ publisher }: { publisher: PublisherLookup }) {
+function PublisherDetailBlock({
+  publisher,
+  aiHandlers
+}: {
+  publisher: PublisherLookup;
+  aiHandlers?: AiResearchHandlers;
+}) {
   return (
     <View style={styles.card}>
       <SectionTitle>PUBLISHER</SectionTitle>
@@ -398,10 +507,13 @@ function PublisherDetailBlock({ publisher }: { publisher: PublisherLookup }) {
         </View>
       )}
       {publisher.reliabilityTier === 'unknown' && (
-        <Text style={styles.unknownCaveat}>
-          Common reasons: local newspaper, niche blog, foreign-language site, or new
-          publication. The score above relies on article-level signals only.
-        </Text>
+        <>
+          <Text style={styles.unknownCaveat}>
+            Common reasons: local newspaper, niche blog, foreign-language site, or new
+            publication. The score above relies on article-level signals only.
+          </Text>
+          <AiResearchSection research={publisher.aiResearch} handlers={aiHandlers} />
+        </>
       )}
     </View>
   );
@@ -412,10 +524,36 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
   const [url, setUrl] = useState('');
   const [state, setState] = useState<ScreenState>({ kind: 'idle' });
   const [feedbackDeviceId, setFeedbackDeviceId] = useState<string | null>(null);
+  const [aiLookupInFlight, setAiLookupInFlight] = useState(false);
+  const [aiLookupError, setAiLookupError] = useState<string | null>(null);
 
   useEffect(() => {
     getDeviceId().then(setFeedbackDeviceId);
   }, []);
+
+  async function onLookupPublisher(): Promise<void> {
+    if (state.kind !== 'result' || !state.job.publisher) return;
+    const jobId = state.job.jobId;
+    setAiLookupInFlight(true);
+    setAiLookupError(null);
+    const deviceId = await getDeviceId();
+    const r = await requestPublisherResearch(jobId, deviceId);
+    setAiLookupInFlight(false);
+    if (!r.ok) {
+      setAiLookupError(r.error.message);
+      return;
+    }
+    setState((prev) => {
+      if (prev.kind !== 'result' || !prev.job.publisher) return prev;
+      return {
+        kind: 'result',
+        job: {
+          ...prev.job,
+          publisher: { ...prev.job.publisher, aiResearch: r.value }
+        }
+      };
+    });
+  }
 
   async function pollUntilDone(jobId: string): Promise<void> {
     for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
@@ -455,6 +593,8 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
   async function onSubmit() {
     if (!url.trim()) return;
+    setAiLookupInFlight(false);
+    setAiLookupError(null);
     setState({ kind: 'submitting' });
     const deviceId = await getDeviceId();
     const submission = await submitCheck(url.trim(), deviceId);
@@ -482,6 +622,8 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
   function onReset() {
     setUrl('');
+    setAiLookupInFlight(false);
+    setAiLookupError(null);
     setState({ kind: 'idle' });
   }
 
@@ -617,7 +759,17 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
               )}
 
               <BreakdownBlock job={completeJob} />
-              {completeJob.publisher && <PublisherDetailBlock publisher={completeJob.publisher} />}
+              {completeJob.publisher && (
+                <PublisherDetailBlock
+                  publisher={completeJob.publisher}
+                  aiHandlers={{
+                    jobId: completeJob.jobId,
+                    inFlight: aiLookupInFlight,
+                    error: aiLookupError,
+                    onLookup: onLookupPublisher
+                  }}
+                />
+              )}
 
               {completeJob.counterArgument && (
                 <View style={styles.counterBox}>
@@ -1074,6 +1226,93 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontStyle: 'italic',
     marginTop: 12
+  },
+
+  // ---- AI publisher research ----
+  lookupButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    height: 40,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: COLORS.deepTealLight,
+    backgroundColor: COLORS.cream,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  lookupButtonDisabled: {
+    opacity: 0.7
+  },
+  lookupButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.deepTeal
+  },
+  lookupHint: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 8,
+    lineHeight: 16
+  },
+  lookupError: {
+    fontSize: 13,
+    color: COLORS.lowSoft,
+    marginTop: 8
+  },
+  aiResearchBox: {
+    marginTop: 12,
+    backgroundColor: COLORS.cream,
+    borderColor: COLORS.borderSoft,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14
+  },
+  aiResearchLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    color: COLORS.deepTeal,
+    marginBottom: 6
+  },
+  aiResearchSummary: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20
+  },
+  sentimentChip: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999
+  },
+  sentimentChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4
+  },
+  citationList: {
+    marginTop: 12,
+    gap: 6
+  },
+  citationRow: {
+    paddingVertical: 6
+  },
+  citationTitle: {
+    fontSize: 14,
+    color: COLORS.deepTeal,
+    fontWeight: '600'
+  },
+  citationUrl: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2
+  },
+  aiResearchFootnote: {
+    fontSize: 11,
+    color: COLORS.textDim,
+    fontStyle: 'italic',
+    marginTop: 10
   },
 
   disclaimer: {
