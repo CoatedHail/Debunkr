@@ -26,9 +26,9 @@ export function LimitationsScreen({ onBack }: LimitationsScreenProps) {
         <Text style={styles.bullet}>• Breaking news. A single article in isolation is hard to judge; cross-reference matters.</Text>
         <Text style={styles.bullet}>• Satire. We do not yet detect satire — sites like The Onion may be rated as low credibility.</Text>
         <Text style={styles.bullet}>• Opinion vs reporting. The score evaluates writing quality, not whether you should agree with the opinion.</Text>
-        <Text style={styles.bullet}>• V1 has no publisher database yet. Source reputation lands in a later update.</Text>
-        <Text style={styles.bullet}>• V1 has no real bias rating yet. That lands in a later update.</Text>
-        <Text style={styles.bullet}>• We do not store or share the URLs you check. They live only on your device's local history.</Text>
+        <Text style={styles.bullet}>• Publisher reputation is curated (~32 publishers from Wikipedia's Perennial Sources list + IFCN-signatory fact-checkers). Coverage will expand over time.</Text>
+        <Text style={styles.bullet}>• Tone & balance is an LLM estimate, not a real bias dataset (AllSides license still pending). Treat it with caution.</Text>
+        <Text style={styles.bullet}>• URLs you check are temporarily cached server-side (max 24 hours) so repeat checks of the same article respond faster. We don't sell or share them. See the Privacy Policy for the full data flow.</Text>
         <Text style={styles.bullet}>• Fact-checking is English-only. Non-English articles are checked weakly or not at all.</Text>
         <Text style={styles.bullet}>• Breaking news (less than 24 hours old) often has no fact-check or Tier-1 coverage yet. We will say "no fact-checks found" rather than guess.</Text>
         <Text style={styles.bullet}>• Fabricated entities slip through if they are not yet on Wikipedia — and some real people aren't on Wikipedia either, so this is not perfect.</Text>

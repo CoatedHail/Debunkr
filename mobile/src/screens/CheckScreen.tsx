@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -40,7 +41,55 @@ const DEEP_POLL_MAX_ATTEMPTS = 60; // deep is slower
 export interface CheckScreenProps {
   onOpenMethodology: () => void;
   onOpenLimitations: () => void;
+  onOpenMediaLiteracy: () => void;
 }
+
+// ---- Tooltip copy ---------------------------------------------------------
+interface TooltipCopy {
+  whatThisChecks: string;
+  askYourself: string;
+}
+
+const TOOLTIPS: Record<string, TooltipCopy> = {
+  'OVERALL CREDIBILITY': {
+    whatThisChecks:
+      'A combined score: 45% publisher reputation, 45% AI-judged article quality, 10% tone & balance.',
+    askYourself:
+      'Does the score match your gut read? A weak score from a strong source — or vice versa — is worth a closer look.'
+  },
+  'RATING STRENGTH': {
+    whatThisChecks:
+      'How much data we had to make this rating. High = we knew the publisher and read the article cleanly. Low = we had to fall back to article-level signals.',
+    askYourself:
+      'When rating strength is low, treat the score as a guess, not a verdict. Look for primary sources yourself.'
+  },
+  ARTICLE: {
+    whatThisChecks: 'The title, author, and a short excerpt extracted from the page.',
+    askYourself:
+      'Does the headline match what the article actually says? Is there a named author with verifiable credentials?'
+  },
+  BREAKDOWN: {
+    whatThisChecks: 'The three signals that produced the overall score, scored independently.',
+    askYourself:
+      "If one signal is much lower than the others, that's where to focus your skepticism."
+  },
+  PUBLISHER: {
+    whatThisChecks:
+      'Who published this and how reputable they are by independent assessment (Wikipedia Perennial Sources, IFCN).',
+    askYourself:
+      'Even reputable publishers can be wrong. Even unknown publishers can be correct. Reputation is one signal, not the truth.'
+  },
+  "DEVIL'S ADVOCATE": {
+    whatThisChecks: 'An AI-generated argument for why the rating could be wrong. We always show this.',
+    askYourself:
+      'Read this BEFORE deciding. The strongest version of the opposite view trains your media literacy more than agreeing with the score.'
+  },
+  'DEEP ANALYSIS': {
+    whatThisChecks:
+      'Three sequential AI calls (Skeptic, Advocate, Judge) plus an external fact-check pipeline against Google Fact Check Tools and Wikipedia.',
+    askYourself: 'Read the Skeptic and Advocate sections before the Judge. Watch where they disagree.'
+  }
+};
 
 // ---- Brand palette ---------------------------------------------------------
 const COLORS = {
@@ -130,6 +179,74 @@ function SectionTitle({ children }: { children: string }) {
   return <Text style={styles.sectionTitle}>{children}</Text>;
 }
 
+// ---- Info modal -----------------------------------------------------------
+function InfoModal({
+  visible,
+  title,
+  copy,
+  onClose
+}: {
+  visible: boolean;
+  title: string;
+  copy: TooltipCopy | null;
+  onClose: () => void;
+}) {
+  if (!copy) return null;
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalCard} onPress={() => {}}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{title}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              onPress={onClose}
+              style={({ pressed }) => [styles.modalClose, pressed && styles.pressed]}
+              hitSlop={10}
+            >
+              <Text style={styles.modalCloseText}>✕</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.modalSubLabel}>What this checks</Text>
+          <Text style={styles.modalParagraph}>{copy.whatThisChecks}</Text>
+          <Text style={styles.modalSubLabel}>What you should ask yourself</Text>
+          <Text style={styles.modalParagraph}>{copy.askYourself}</Text>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// ---- Section title with tappable info icon --------------------------------
+function SectionTitleWithInfo({
+  title,
+  onPressInfo
+}: {
+  title: string;
+  onPressInfo: () => void;
+}) {
+  return (
+    <View style={styles.sectionTitleRow}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`More info about ${title}`}
+        onPress={onPressInfo}
+        hitSlop={8}
+        style={({ pressed }) => [styles.infoIcon, pressed && styles.pressed]}
+      >
+        <Text style={styles.infoIconText}>i</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 // ---- Agent card -----------------------------------------------------------
 function AgentCard({ label, color, report, expanded, onToggle }:
   { label: string; color: string; report: AgentReport; expanded: boolean; onToggle: () => void }) {
@@ -164,15 +281,26 @@ function AgentCard({ label, color, report, expanded, onToggle }:
 }
 
 // ---- Deep Analysis block --------------------------------------------------
-function DeepAnalysisBlock({ deep }: { deep: DeepAnalysis }) {
+function DeepAnalysisBlock({ deep, onInfo }: { deep: DeepAnalysis; onInfo: (name: string) => void }) {
   const [skExpanded, setSkExpanded] = useState(false);
   const [adExpanded, setAdExpanded] = useState(false);
   return (
     <View style={styles.deepBox}>
-      <SectionTitle>DEEP ANALYSIS</SectionTitle>
+      <SectionTitleWithInfo title="DEEP ANALYSIS" onPressInfo={() => onInfo('DEEP ANALYSIS')} />
 
       <View style={styles.judgeBox}>
-        <Text style={styles.judgeLabel}>JUDGE'S VERDICT</Text>
+        <View style={styles.judgeLabelRow}>
+          <Text style={styles.judgeLabel}>JUDGE'S VERDICT</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="More info about RATING STRENGTH"
+            onPress={() => onInfo('RATING STRENGTH')}
+            hitSlop={8}
+            style={({ pressed }) => [styles.infoIcon, pressed && styles.pressed]}
+          >
+            <Text style={styles.infoIconText}>i</Text>
+          </Pressable>
+        </View>
         <Text style={styles.judgeVerdict}>{deep.judge.verdict}</Text>
         <View style={[styles.confidencePill, { borderColor: confidenceColor(deep.judge.confidence), marginTop: 10 }]}>
           <Text style={[styles.confidencePillText, { color: confidenceColor(deep.judge.confidence) }]}>
@@ -296,41 +424,54 @@ function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | 
 }
 
 // ---- Headline (big score + bucket) ----------------------------------------
-function HeadlineBlock({ job }: { job: JobResult }) {
+function HeadlineBlock({ job, onInfo }: { job: JobResult; onInfo: (name: string) => void }) {
   if (job.overall === undefined || !job.bucket || !job.confidence) return null;
   const color = overallColor(job.overall);
   const tintBg = overallTintBg(job.overall);
+  const confidence = job.confidence;
+  const confColor = confidenceColor(confidence);
   return (
     <View style={styles.headlineWrap}>
-      <SectionTitle>OVERALL CREDIBILITY</SectionTitle>
+      <SectionTitleWithInfo title="OVERALL CREDIBILITY" onPressInfo={() => onInfo('OVERALL CREDIBILITY')} />
       <View style={[styles.scorePill, { backgroundColor: tintBg }]}>
         <Text
           style={[styles.headlineScore, { color }]}
           adjustsFontSizeToFit
           numberOfLines={1}
           minimumFontScale={0.6}
-          accessibilityLabel={`Credibility score ${job.overall} out of 100, rating strength ${job.confidence}`}
+          accessibilityLabel={`Credibility score ${job.overall} out of 100, rating strength ${confidence}`}
         >
           {job.overall}
         </Text>
         <Text style={[styles.scoreSuffix, { color }]}>/ 100</Text>
       </View>
       <Text style={[styles.headlineLabel, { color }]}>{bucketLabel(job.bucket)}</Text>
-      <View style={[styles.confidencePill, { borderColor: confidenceColor(job.confidence), marginTop: 8 }]}>
-        <Text style={[styles.confidencePillText, { color: confidenceColor(job.confidence) }]}>
-          {job.confidence.toUpperCase()} RATING STRENGTH
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="More info about RATING STRENGTH"
+        onPress={() => onInfo('RATING STRENGTH')}
+        hitSlop={6}
+        style={({ pressed }) => [
+          styles.confidencePill,
+          { borderColor: confColor, marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
+          pressed && styles.pressed
+        ]}
+      >
+        <Text style={[styles.confidencePillText, { color: confColor }]}>
+          {confidence.toUpperCase()} RATING STRENGTH
         </Text>
-      </View>
+        <Text style={[styles.confidencePillText, { color: confColor, opacity: 0.7 }]}>ⓘ</Text>
+      </Pressable>
     </View>
   );
 }
 
 // ---- Breakdown ------------------------------------------------------------
-function BreakdownBlock({ job }: { job: JobResult }) {
+function BreakdownBlock({ job, onInfo }: { job: JobResult; onInfo: (name: string) => void }) {
   if (job.sourceRep === undefined || job.contentQuality === undefined) return null;
   return (
     <View style={styles.card}>
-      <SectionTitle>BREAKDOWN</SectionTitle>
+      <SectionTitleWithInfo title="BREAKDOWN" onPressInfo={() => onInfo('BREAKDOWN')} />
 
       <View style={styles.breakdownRow}>
         <Text style={styles.breakdownName}>Publisher reputation</Text>
@@ -477,14 +618,20 @@ function AiResearchSection({
 // ---- Publisher block ------------------------------------------------------
 function PublisherDetailBlock({
   publisher,
-  aiHandlers
+  aiHandlers,
+  onInfo
 }: {
   publisher: PublisherLookup;
   aiHandlers?: AiResearchHandlers;
+  onInfo?: (name: string) => void;
 }) {
   return (
     <View style={styles.card}>
-      <SectionTitle>PUBLISHER</SectionTitle>
+      {onInfo ? (
+        <SectionTitleWithInfo title="PUBLISHER" onPressInfo={() => onInfo('PUBLISHER')} />
+      ) : (
+        <SectionTitle>PUBLISHER</SectionTitle>
+      )}
       <Text style={styles.publisherDomain}>{publisher.canonicalDomain ?? 'Unknown domain'}</Text>
       <View style={[styles.inline, { marginTop: 8 }]}>
         <View style={[styles.tierBadge, { backgroundColor: tierColor(publisher.reliabilityTier) }]}>
@@ -520,12 +667,17 @@ function PublisherDetailBlock({
 }
 
 // ---- Main screen ----------------------------------------------------------
-export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScreenProps) {
+export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaLiteracy }: CheckScreenProps) {
   const [url, setUrl] = useState('');
   const [state, setState] = useState<ScreenState>({ kind: 'idle' });
   const [feedbackDeviceId, setFeedbackDeviceId] = useState<string | null>(null);
   const [aiLookupInFlight, setAiLookupInFlight] = useState(false);
   const [aiLookupError, setAiLookupError] = useState<string | null>(null);
+  const [infoOpen, setInfoOpen] = useState<string | null>(null);
+
+  function openInfo(name: string): void {
+    setInfoOpen(name);
+  }
 
   useEffect(() => {
     getDeviceId().then(setFeedbackDeviceId);
@@ -658,6 +810,14 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
             >
               <Text style={styles.headerLinkText}>Limits</Text>
             </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Media literacy tips"
+              onPress={onOpenMediaLiteracy}
+              style={({ pressed }) => [styles.headerLinkButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.headerLinkText}>Tips</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -719,10 +879,12 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
           {state.kind === 'polling' && (
             <View style={styles.stack}>
-              {polling?.publisher && <PublisherDetailBlock publisher={polling.publisher} />}
+              {polling?.publisher && (
+                <PublisherDetailBlock publisher={polling.publisher} onInfo={openInfo} />
+              )}
               {polling?.article?.title && (
                 <View style={styles.card}>
-                  <SectionTitle>ARTICLE</SectionTitle>
+                  <SectionTitleWithInfo title="ARTICLE" onPressInfo={() => openInfo('ARTICLE')} />
                   <Text style={styles.value}>{polling.article.title}</Text>
                   {polling.article.excerpt && (
                     <Text style={styles.articleExcerpt} numberOfLines={3}>
@@ -743,12 +905,12 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
           {completeJob && (
             <View style={styles.stack}>
               <View style={styles.card}>
-                <HeadlineBlock job={completeJob} />
+                <HeadlineBlock job={completeJob} onInfo={openInfo} />
               </View>
 
               {completeJob.article?.title && (
                 <View style={styles.card}>
-                  <SectionTitle>ARTICLE</SectionTitle>
+                  <SectionTitleWithInfo title="ARTICLE" onPressInfo={() => openInfo('ARTICLE')} />
                   <Text style={styles.value}>{completeJob.article.title}</Text>
                   {completeJob.article.excerpt && (
                     <Text style={styles.articleExcerpt} numberOfLines={3}>
@@ -758,10 +920,11 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
                 </View>
               )}
 
-              <BreakdownBlock job={completeJob} />
+              <BreakdownBlock job={completeJob} onInfo={openInfo} />
               {completeJob.publisher && (
                 <PublisherDetailBlock
                   publisher={completeJob.publisher}
+                  onInfo={openInfo}
                   aiHandlers={{
                     jobId: completeJob.jobId,
                     inFlight: aiLookupInFlight,
@@ -773,7 +936,18 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
 
               {completeJob.counterArgument && (
                 <View style={styles.counterBox}>
-                  <Text style={styles.counterTitle}>DEVIL'S ADVOCATE</Text>
+                  <View style={styles.sectionTitleRow}>
+                    <Text style={styles.counterTitle}>DEVIL'S ADVOCATE</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="More info about DEVIL'S ADVOCATE"
+                      onPress={() => openInfo("DEVIL'S ADVOCATE")}
+                      hitSlop={8}
+                      style={({ pressed }) => [styles.infoIcon, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.infoIconText}>i</Text>
+                    </Pressable>
+                  </View>
                   <Text style={styles.counterText}>{completeJob.counterArgument}</Text>
                   <Text style={styles.counterFootnote}>
                     The strongest reason this rating could be wrong. Media-literacy tool.
@@ -782,6 +956,37 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
               )}
 
               <FeedbackBlock jobId={completeJob.jobId} deviceId={feedbackDeviceId} />
+
+              {completeJob.article?.title && (
+                <View style={styles.lateralCard}>
+                  <Text style={styles.lateralLabel}>READ LATERALLY</Text>
+                  <Text style={styles.lateralCopy}>
+                    Don't trust one source alone. See what other publishers are saying:
+                  </Text>
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel="See coverage on Google News"
+                    onPress={() => {
+                      const q = encodeURIComponent(completeJob.article?.title ?? '');
+                      Linking.openURL('https://news.google.com/search?q=' + q).catch(() => {});
+                    }}
+                    style={({ pressed }) => [styles.lateralButton, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.lateralButtonText}>See coverage on Google News</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel="Wikipedia entry"
+                    onPress={() => {
+                      const q = encodeURIComponent(completeJob.article?.title ?? '');
+                      Linking.openURL('https://en.wikipedia.org/wiki/Special:Search?search=' + q).catch(() => {});
+                    }}
+                    style={({ pressed }) => [styles.lateralButton, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.lateralButtonText}>Wikipedia entry</Text>
+                  </Pressable>
+                </View>
+              )}
 
               {/* Deep Analysis CTA + section */}
               {(!completeJob.deepStatus || completeJob.deepStatus === 'idle') && (
@@ -825,7 +1030,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
               )}
 
               {completeJob.deepStatus === 'complete' && completeJob.deepAnalysis && (
-                <DeepAnalysisBlock deep={completeJob.deepAnalysis} />
+                <DeepAnalysisBlock deep={completeJob.deepAnalysis} onInfo={openInfo} />
               )}
 
               <Text style={styles.disclaimer}>
@@ -874,6 +1079,12 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations }: CheckScree
           )}
         </View>
       </ScrollView>
+      <InfoModal
+        visible={infoOpen !== null}
+        title={infoOpen ?? ''}
+        copy={infoOpen ? TOOLTIPS[infoOpen] ?? null : null}
+        onClose={() => setInfoOpen(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -1020,6 +1231,134 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: 'uppercase',
     marginBottom: 10
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10
+  },
+  infoIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    borderWidth: 1.2,
+    borderColor: COLORS.deepTealLight,
+    backgroundColor: COLORS.cream,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  infoIconText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.deepTeal,
+    lineHeight: 14,
+    fontStyle: 'italic'
+  },
+
+  // ---- Tooltip modal ----
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(31, 41, 55, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20
+  },
+  modalCard: {
+    backgroundColor: COLORS.cream,
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 420,
+    borderColor: COLORS.sageBg,
+    borderWidth: 1,
+    ...cardShadow
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 8
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.deepTeal,
+    flexShrink: 1,
+    letterSpacing: 0.4
+  },
+  modalClose: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    backgroundColor: COLORS.sageLight,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  modalCloseText: {
+    color: COLORS.deepTeal,
+    fontWeight: '700',
+    fontSize: 14
+  },
+  modalSubLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.0,
+    color: COLORS.deepTeal,
+    textTransform: 'uppercase',
+    marginTop: 8,
+    marginBottom: 4
+  },
+  modalParagraph: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 21
+  },
+
+  // ---- Read laterally card ----
+  lateralCard: {
+    backgroundColor: COLORS.cream,
+    borderColor: COLORS.sageBg,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 18,
+    gap: 10,
+    ...cardShadow
+  },
+  lateralLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.deepTeal,
+    letterSpacing: 1.2
+  },
+  lateralCopy: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20
+  },
+  lateralButton: {
+    borderWidth: 1.5,
+    borderColor: COLORS.deepTeal,
+    borderRadius: 999,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    backgroundColor: COLORS.cream
+  },
+  lateralButtonText: {
+    color: COLORS.deepTeal,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2
+  },
+
+  // ---- Judge label row ----
+  judgeLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6
   },
 
   inline: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
