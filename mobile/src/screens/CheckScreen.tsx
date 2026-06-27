@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -6,13 +6,16 @@ import {
   Pressable,
   SafeAreaView,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { submitCheck, getJob, startDeep, submitFeedback, requestPublisherResearch } from '../api/client';
 import { getDeviceId } from '../lib/device-id';
+import { loadRecentChecks, pushRecentCheck, type RecentCheck } from '../lib/recent-checks';
 import { EvidenceCard } from '../components/EvidenceCard';
 import type {
   AgentReport,
@@ -110,6 +113,98 @@ const COLORS = {
   white:         '#FFFFFF',
   counterBg:     '#FBF3DA'
 };
+
+// ---- Daily-rotating content (hero stat + Did You Know tip) ----------------
+interface HeroStat {
+  quote: string;
+  source: string;
+}
+
+const HERO_STATS: HeroStat[] = [
+  {
+    quote: "82% of students can't tell a sponsored article from a news story.",
+    source: 'Stanford History Education Group, 2016'
+  },
+  {
+    quote: 'On Twitter, false stories spread 6× faster than true ones.',
+    source: 'MIT Sloan, 2018 (Science)'
+  },
+  {
+    quote: "A 3-hour 'Civic Online Reasoning' intervention improved fact-checking skills by 50%.",
+    source: 'Stanford, 2022'
+  },
+  {
+    quote: 'Only 30% of Americans trust news media, but 86% read news on digital devices.',
+    source: 'Pew Research, 2024'
+  },
+  {
+    quote: 'Lateral reading reduces susceptibility to misinformation by about 2×.',
+    source: 'Stanford Internet Observatory'
+  },
+  {
+    quote: 'Disinformation generates 6× more Facebook engagement than factual news.',
+    source: 'NYU, 2021'
+  }
+];
+
+const DID_YOU_KNOW_TIPS: string[] = [
+  'When a story makes you feel strong emotion, pause before sharing. Strong emotion is the #1 driver of misinformation spread.',
+  'Lateral reading — opening new tabs to verify — is faster AND more accurate than carefully evaluating one source.',
+  'Anonymous sources are sometimes necessary (whistleblowers), often a red flag. The most reliable articles cite named, verifiable people.',
+  'A headline can be misleading even when the article is accurate. Always read past the headline before sharing.',
+  'Real photos used in fake contexts is the most common form of visual misinformation. A reverse image search takes 10 seconds.',
+  'If only one publisher is reporting a major event, that’s a red flag. Mainstream stories get covered by multiple Tier-1 sources.'
+];
+
+function dailyIndex(): number {
+  return new Date().getUTCDate() % 6;
+}
+
+// ---- Try-an-example chips -------------------------------------------------
+interface ExampleChip {
+  label: string;
+  url: string;
+}
+
+const EXAMPLE_CHIPS: ExampleChip[] = [
+  { label: 'BBC article', url: 'https://www.bbc.com/news/articles/c80x0qrm0pno' },
+  { label: 'Snopes fact-check', url: 'https://www.snopes.com/fact-check/pope-francis-donald-trump-endorsement/' },
+  { label: 'Wikipedia entry', url: 'https://en.wikipedia.org/wiki/Pizzagate_conspiracy_theory' },
+  { label: 'Guardian article', url: 'https://www.theguardian.com/world' }
+];
+
+// ---- Friendly error mapping -----------------------------------------------
+function friendlyErrorMessage(raw: string | undefined | null): string {
+  if (!raw) return "Couldn't read this article. Try a different URL.";
+  const msg = raw.toLowerCase();
+
+  // SSRF / private network detection (check before status codes — these often
+  // surface as URL_BLOCKED with bespoke messaging).
+  if (
+    msg.includes('private') ||
+    msg.includes('ssrf') ||
+    msg.includes('loopback') ||
+    msg.includes('localhost') ||
+    msg.includes('blocked host') ||
+    msg.includes('internal network')
+  ) {
+    return 'That URL points to a private network. CredCheck only checks public articles.';
+  }
+
+  if (msg.includes('401') || msg.includes('403') || msg.includes('forbidden') || msg.includes('unauthorized')) {
+    return 'Site needs login or blocks automated fetching. Try an open article.';
+  }
+  if (msg.includes('404') || msg.includes('not found')) {
+    return 'URL not found. Check for typos.';
+  }
+  if (msg.includes('408') || msg.includes('timed out') || msg.includes('timeout')) {
+    return 'The site took too long to respond. Try again.';
+  }
+  if (/\b5\d\d\b/.test(msg) || msg.includes('bad gateway') || msg.includes('service unavailable')) {
+    return 'The site is having problems right now. Try again later.';
+  }
+  return "Couldn't read this article. Try a different URL.";
+}
 
 // ---- Bucket / score helpers -----------------------------------------------
 function overallColor(score: number): string {
@@ -666,6 +761,98 @@ function PublisherDetailBlock({
   );
 }
 
+// ---- Empty-state hero stat carousel ---------------------------------------
+function HeroStatCard({ stat }: { stat: HeroStat }) {
+  return (
+    <View style={styles.heroStatCard}>
+      <Text style={styles.heroStatQuoteMark}>“</Text>
+      <Text style={styles.heroStatQuote}>{stat.quote}</Text>
+      <Text style={styles.heroStatSource}>— {stat.source}</Text>
+    </View>
+  );
+}
+
+// ---- Try-an-example chips (reused in empty + error states) ----------------
+function ExampleChips({
+  onPickExample,
+  title = 'TRY AN EXAMPLE'
+}: {
+  onPickExample: (url: string) => void;
+  title?: string;
+}) {
+  return (
+    <View style={styles.exampleChipsWrap}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.exampleChipsGrid}>
+        {EXAMPLE_CHIPS.map((c) => (
+          <Pressable
+            key={c.url}
+            accessibilityRole="button"
+            accessibilityLabel={`Try ${c.label}`}
+            onPress={() => onPickExample(c.url)}
+            style={({ pressed }) => [styles.exampleChip, pressed && styles.pressed]}
+          >
+            <Text style={styles.exampleChipText}>{c.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ---- Did You Know card ----------------------------------------------------
+function DidYouKnowCard({ tip }: { tip: string }) {
+  return (
+    <View style={styles.didYouKnowCard}>
+      <Text style={styles.sectionTitle}>DID YOU KNOW?</Text>
+      <Text style={styles.didYouKnowText}>{tip}</Text>
+    </View>
+  );
+}
+
+// ---- Recent checks list ---------------------------------------------------
+function RecentChecksList({
+  items,
+  onPick
+}: {
+  items: RecentCheck[];
+  onPick: (entry: RecentCheck) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <View style={styles.recentChecksCard}>
+      <Text style={styles.sectionTitle}>RECENT CHECKS</Text>
+      {items.map((entry, i) => {
+        const color = overallColor(entry.overall);
+        const tintBg = overallTintBg(entry.overall);
+        return (
+          <Pressable
+            key={`${entry.url}-${entry.checkedAt}`}
+            accessibilityRole="button"
+            accessibilityLabel={`Re-check ${entry.title || entry.url}`}
+            onPress={() => onPick(entry)}
+            style={({ pressed }) => [
+              styles.recentRow,
+              i === 0 && styles.recentRowFirst,
+              pressed && styles.pressed
+            ]}
+          >
+            <View style={styles.recentRowText}>
+              <Text style={styles.recentTitle} numberOfLines={1}>
+                {entry.title || entry.url}
+              </Text>
+              <Text style={styles.recentBucket}>{bucketLabel(entry.bucket)}</Text>
+            </View>
+            <View style={[styles.recentScorePill, { backgroundColor: tintBg }]}>
+              <Text style={[styles.recentScoreText, { color }]}>{entry.overall}</Text>
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 // ---- Main screen ----------------------------------------------------------
 export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaLiteracy }: CheckScreenProps) {
   const [url, setUrl] = useState('');
@@ -674,6 +861,15 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
   const [aiLookupInFlight, setAiLookupInFlight] = useState(false);
   const [aiLookupError, setAiLookupError] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState<string | null>(null);
+  const [recentChecks, setRecentChecks] = useState<RecentCheck[]>([]);
+  const [loadingStage, setLoadingStage] = useState<string>('Reading the article…');
+  const persistedJobIdsRef = useRef<Set<string>>(new Set());
+  const scrollRef = useRef<ScrollView | null>(null);
+
+  // Daily-rotating content (recomputed once per mount — stable per UTC day).
+  const dayIdx = dailyIndex();
+  const heroStat = HERO_STATS[dayIdx];
+  const dyKnowTip = DID_YOU_KNOW_TIPS[dayIdx];
 
   function openInfo(name: string): void {
     setInfoOpen(name);
@@ -681,7 +877,41 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
 
   useEffect(() => {
     getDeviceId().then(setFeedbackDeviceId);
+    loadRecentChecks().then(setRecentChecks);
   }, []);
+
+  // Cycle the loading-stage label while we're working on a check.
+  useEffect(() => {
+    const isWorking = state.kind === 'submitting' || state.kind === 'polling';
+    if (!isWorking) return;
+    setLoadingStage('Reading the article…');
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 1500) setLoadingStage('Reading the article…');
+      else if (elapsed < 3000) setLoadingStage('Scoring the article…');
+      else setLoadingStage('Almost done…');
+    }, 300);
+    return () => clearInterval(interval);
+  }, [state.kind]);
+
+  // Persist the last 5 successful checks once each job becomes complete.
+  useEffect(() => {
+    if (state.kind !== 'result') return;
+    const job = state.job;
+    if (job.status !== 'complete') return;
+    if (job.overall === undefined || !job.bucket) return;
+    if (persistedJobIdsRef.current.has(job.jobId)) return;
+    persistedJobIdsRef.current.add(job.jobId);
+    const entry: RecentCheck = {
+      url,
+      title: job.article?.title ?? url,
+      overall: job.overall,
+      bucket: job.bucket,
+      checkedAt: new Date().toISOString()
+    };
+    pushRecentCheck(entry).then(setRecentChecks).catch(() => {});
+  }, [state, url]);
 
   async function onLookupPublisher(): Promise<void> {
     if (state.kind !== 'result' || !state.job.publisher) return;
@@ -777,6 +1007,53 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
     setAiLookupInFlight(false);
     setAiLookupError(null);
     setState({ kind: 'idle' });
+    // Scroll back to the top of the empty state.
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
+  function onPickExample(exampleUrl: string): void {
+    setUrl(exampleUrl);
+  }
+
+  async function onPickRecent(entry: RecentCheck): Promise<void> {
+    // Re-runs the check against the same URL so the user gets the latest score.
+    setUrl(entry.url);
+    if (state.kind === 'submitting' || state.kind === 'polling') return;
+    setAiLookupInFlight(false);
+    setAiLookupError(null);
+    setState({ kind: 'submitting' });
+    const deviceId = await getDeviceId();
+    const submission = await submitCheck(entry.url, deviceId);
+    if (!submission.ok) {
+      setState({ kind: 'error', message: submission.error.message });
+      return;
+    }
+    setState({ kind: 'polling', jobId: submission.value.jobId });
+    await pollUntilDone(submission.value.jobId);
+  }
+
+  async function onPasteFromClipboard(): Promise<void> {
+    try {
+      const text = await Clipboard.getStringAsync();
+      const trimmed = text?.trim() ?? '';
+      if (trimmed.length > 0) setUrl(trimmed);
+    } catch {
+      // Permissions on iOS are tied to the tap itself — failures are silent.
+    }
+  }
+
+  async function onShareResult(job: JobResult): Promise<void> {
+    if (job.overall === undefined || !job.bucket) return;
+    const articleUrl = url;
+    const title = job.article?.title ?? 'Article';
+    const message =
+      `${title} — scored ${job.overall}/100 (${bucketLabel(job.bucket)}) on CredCheck. ` +
+      `Check it yourself: ${articleUrl}`;
+    try {
+      await Share.share({ message, url: articleUrl });
+    } catch {
+      // user cancelled or platform unsupported — no-op
+    }
   }
 
   const isWorking = state.kind === 'submitting' || state.kind === 'polling';
@@ -787,7 +1064,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.sageStrip} />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         <View style={styles.headerRow}>
           <View style={{ flexShrink: 1 }}>
             <Text style={styles.title}>Credibility Check</Text>
@@ -847,24 +1124,52 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
           <Text style={styles.primaryButtonText}>Check</Text>
         </Pressable>
 
+        {state.kind === 'idle' && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Paste URL from clipboard"
+            onPress={onPasteFromClipboard}
+            style={({ pressed }) => [styles.pasteButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.pasteButtonText}>📋 Paste from clipboard</Text>
+          </Pressable>
+        )}
+
+        {state.kind === 'result' && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start a new check"
+            onPress={onReset}
+            style={({ pressed }) => [styles.newCheckButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.newCheckButtonText}>✕ New check</Text>
+          </Pressable>
+        )}
+
         <View style={styles.resultArea}>
           {state.kind === 'idle' && (
-            <View style={styles.howCard}>
-              <Text style={styles.sectionTitle}>HOW IT WORKS</Text>
-              <View style={styles.howStep}>
-                <Text style={styles.howNumber}>1.</Text>
-                <Text style={styles.howText}>Paste any article URL above.</Text>
+            <View style={styles.stack}>
+              <HeroStatCard stat={heroStat} />
+              <ExampleChips onPickExample={onPickExample} />
+              <RecentChecksList items={recentChecks} onPick={onPickRecent} />
+              <View style={styles.howCard}>
+                <Text style={styles.sectionTitle}>HOW IT WORKS</Text>
+                <View style={styles.howStep}>
+                  <Text style={styles.howNumber}>1.</Text>
+                  <Text style={styles.howText}>Paste any article URL above.</Text>
+                </View>
+                <View style={styles.howStep}>
+                  <Text style={styles.howNumber}>2.</Text>
+                  <Text style={styles.howText}>We score it 0-100 for credibility.</Text>
+                </View>
+                <View style={styles.howStep}>
+                  <Text style={styles.howNumber}>3.</Text>
+                  <Text style={styles.howText}>
+                    Tap "Deep Analysis" for fact-check evidence + a Skeptic / Advocate debate.
+                  </Text>
+                </View>
               </View>
-              <View style={styles.howStep}>
-                <Text style={styles.howNumber}>2.</Text>
-                <Text style={styles.howText}>We score it 0-100 for credibility.</Text>
-              </View>
-              <View style={styles.howStep}>
-                <Text style={styles.howNumber}>3.</Text>
-                <Text style={styles.howText}>
-                  Tap "Deep Analysis" for fact-check evidence + a Skeptic / Advocate debate.
-                </Text>
-              </View>
+              <DidYouKnowCard tip={dyKnowTip} />
             </View>
           )}
 
@@ -872,7 +1177,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
             <View style={styles.card}>
               <View style={styles.inline}>
                 <ActivityIndicator color={COLORS.deepTeal} />
-                <Text style={styles.muted}>Submitting…</Text>
+                <Text style={styles.muted}>{loadingStage}</Text>
               </View>
             </View>
           )}
@@ -896,7 +1201,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
               <View style={styles.card}>
                 <View style={styles.inline}>
                   <ActivityIndicator color={COLORS.deepTeal} />
-                  <Text style={styles.muted}>Analyzing…</Text>
+                  <Text style={styles.muted}>{loadingStage}</Text>
                 </View>
               </View>
             </View>
@@ -956,6 +1261,17 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
               )}
 
               <FeedbackBlock jobId={completeJob.jobId} deviceId={feedbackDeviceId} />
+
+              {completeJob.overall !== undefined && completeJob.bucket && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Share this result"
+                  onPress={() => onShareResult(completeJob)}
+                  style={({ pressed }) => [styles.shareButton, pressed && styles.pressed]}
+                >
+                  <Text style={styles.shareButtonText}>Share result</Text>
+                </Pressable>
+              )}
 
               {completeJob.article?.title && (
                 <View style={styles.lateralCard}>
@@ -1052,7 +1368,9 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
               {failedJob.publisher && <PublisherDetailBlock publisher={failedJob.publisher} />}
               <View style={styles.card}>
                 <Text style={styles.errorTitle}>Couldn't analyze this URL</Text>
-                <Text style={styles.errorMessage}>{failedJob.error.message}</Text>
+                <Text style={styles.errorMessage}>
+                  {friendlyErrorMessage(failedJob.error.message)}
+                </Text>
                 <Pressable
                   accessibilityRole="button"
                   onPress={onReset}
@@ -1061,20 +1379,36 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
                   <Text style={styles.resetText}>Try another URL</Text>
                 </Pressable>
               </View>
+              <ExampleChips
+                onPickExample={(u) => {
+                  onReset();
+                  setUrl(u);
+                }}
+                title="TRY ONE OF THESE INSTEAD"
+              />
             </View>
           )}
 
           {state.kind === 'error' && (
-            <View style={styles.card}>
-              <Text style={styles.errorTitle}>Error</Text>
-              <Text style={styles.errorMessage}>{state.message}</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={onReset}
-                style={({ pressed }) => [styles.resetLink, pressed && styles.pressed]}
-              >
-                <Text style={styles.resetText}>Try again</Text>
-              </Pressable>
+            <View style={styles.stack}>
+              <View style={styles.card}>
+                <Text style={styles.errorTitle}>Error</Text>
+                <Text style={styles.errorMessage}>{friendlyErrorMessage(state.message)}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onReset}
+                  style={({ pressed }) => [styles.resetLink, pressed && styles.pressed]}
+                >
+                  <Text style={styles.resetText}>Try again</Text>
+                </Pressable>
+              </View>
+              <ExampleChips
+                onPickExample={(u) => {
+                  onReset();
+                  setUrl(u);
+                }}
+                title="TRY ONE OF THESE INSTEAD"
+              />
             </View>
           )}
         </View>
@@ -1732,5 +2066,164 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text,
     textAlignVertical: 'top'
+  },
+
+  // ---- v1.2: Hero stat card -------------------------------------------------
+  heroStatCard: {
+    backgroundColor: COLORS.cream,
+    borderColor: COLORS.sageBg,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 20,
+    ...cardShadow
+  },
+  heroStatQuoteMark: {
+    fontSize: 36,
+    lineHeight: 36,
+    color: COLORS.deepTealLight,
+    fontWeight: '800',
+    marginBottom: -6
+  },
+  heroStatQuote: {
+    fontSize: 18,
+    lineHeight: 26,
+    fontWeight: '600',
+    color: COLORS.text
+  },
+  heroStatSource: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 10,
+    fontStyle: 'italic'
+  },
+
+  // ---- v1.2: Try-an-example chips ------------------------------------------
+  exampleChipsWrap: {
+    gap: 4
+  },
+  exampleChipsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 2
+  },
+  exampleChip: {
+    borderWidth: 1.2,
+    borderColor: COLORS.deepTeal,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: COLORS.cream
+  },
+  exampleChipText: {
+    color: COLORS.deepTeal,
+    fontSize: 13,
+    fontWeight: '600'
+  },
+
+  // ---- v1.2: Did You Know card ---------------------------------------------
+  didYouKnowCard: {
+    backgroundColor: COLORS.sageLight,
+    borderColor: COLORS.sageBg,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 18,
+    ...cardShadow
+  },
+  didYouKnowText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: COLORS.text
+  },
+
+  // ---- v1.2: Recent checks list --------------------------------------------
+  recentChecksCard: {
+    backgroundColor: COLORS.cream,
+    borderColor: COLORS.borderSoft,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 18,
+    ...cardShadow
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderSoft
+  },
+  recentRowFirst: { borderTopWidth: 0 },
+  recentRowText: { flex: 1 },
+  recentTitle: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: '600'
+  },
+  recentBucket: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2
+  },
+  recentScorePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    minWidth: 38,
+    alignItems: 'center'
+  },
+  recentScoreText: {
+    fontSize: 14,
+    fontWeight: '700'
+  },
+
+  // ---- v1.2: Paste from clipboard ------------------------------------------
+  pasteButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.deepTealLight,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: COLORS.cream
+  },
+  pasteButtonText: {
+    color: COLORS.deepTeal,
+    fontSize: 13,
+    fontWeight: '600'
+  },
+
+  // ---- v1.2: New check button ----------------------------------------------
+  newCheckButton: {
+    alignSelf: 'flex-end',
+    borderWidth: 1,
+    borderColor: COLORS.deepTealLight,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: COLORS.cream
+  },
+  newCheckButtonText: {
+    color: COLORS.deepTeal,
+    fontSize: 13,
+    fontWeight: '600'
+  },
+
+  // ---- v1.2: Share button --------------------------------------------------
+  shareButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1.5,
+    borderColor: COLORS.sageBg,
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    backgroundColor: COLORS.cream
+  },
+  shareButtonText: {
+    color: COLORS.deepTeal,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2
   }
 });
