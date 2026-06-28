@@ -191,10 +191,6 @@ const EXAMPLE_CHIPS: ExampleChip[] = [
     url: 'https://www.theguardian.com/news/2026/jun/18/can-ecosystems-malfunction'
   },
   {
-    label: 'NPR health feature',
-    url: 'https://www.npr.org/2026/01/07/nx-s1-5667021'
-  },
-  {
     label: 'The Conversation',
     url: 'https://theconversation.com/what-is-deja-vu-and-why-do-we-get-it-149943'
   }
@@ -208,11 +204,11 @@ const EXAMPLE_CHIPS: ExampleChip[] = [
 const DOMAIN_ERROR_MESSAGES: ReadonlyArray<{ domains: string[]; message: string }> = [
   {
     domains: ['reuters.com'],
-    message: 'Reuters blocks automated readers and requires a subscription. Try a BBC, AP, or NPR article instead.'
+    message: 'Reuters blocks automated readers and requires a subscription. Try a BBC or Guardian article instead.'
   },
   {
     domains: ['nytimes.com', 'nyt.com'],
-    message: 'New York Times requires a subscription. Try BBC or NPR for similar coverage.'
+    message: 'New York Times requires a subscription. Try BBC or Guardian for similar coverage.'
   },
   {
     domains: ['wsj.com'],
@@ -220,7 +216,7 @@ const DOMAIN_ERROR_MESSAGES: ReadonlyArray<{ domains: string[]; message: string 
   },
   {
     domains: ['washingtonpost.com', 'wapo.st'],
-    message: 'Washington Post requires a subscription. Try BBC, NPR, or Guardian instead.'
+    message: 'Washington Post requires a subscription. Try BBC or Guardian instead.'
   },
   {
     domains: ['bloomberg.com'],
@@ -236,15 +232,15 @@ const DOMAIN_ERROR_MESSAGES: ReadonlyArray<{ domains: string[]; message: string 
   },
   {
     domains: ['cbsnews.com'],
-    message: "CBS News uses JavaScript-only rendering that we can't read. Try BBC, NPR, or AP."
+    message: "CBS News uses JavaScript-only rendering that we can't read. Try BBC or Wikipedia."
   },
   {
     domains: ['nbcnews.com'],
-    message: 'NBC News uses JavaScript-only rendering. Try BBC, NPR, or AP instead.'
+    message: 'NBC News uses JavaScript-only rendering. Try BBC or Wikipedia instead.'
   },
   {
     domains: ['abcnews.go.com'],
-    message: 'ABC News uses JavaScript-only rendering. Try BBC, NPR, or AP instead.'
+    message: 'ABC News uses JavaScript-only rendering. Try BBC or Wikipedia instead.'
   },
   {
     domains: ['cnn.com'],
