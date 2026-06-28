@@ -166,15 +166,148 @@ interface ExampleChip {
   url: string;
 }
 
+// Curated, manually verified example URLs. Each one was hit with both GET and
+// HEAD using a desktop User-Agent and returned 200 at landing time. We bias
+// toward URL shapes that tend to stay live for years: Wikipedia article pages,
+// Snopes fact-check archives, BBC Future features, Guardian Long Reads, NPR
+// section features, and The Conversation explainers. We deliberately avoid
+// front-page news slugs and any publisher known to block automated fetches
+// (Reuters, NYT, WSJ, WaPo, Bloomberg, CBS, NBC, CNN, FT, Economist).
 const EXAMPLE_CHIPS: ExampleChip[] = [
-  { label: 'BBC article', url: 'https://www.bbc.com/news/articles/c80x0qrm0pno' },
-  { label: 'Snopes fact-check', url: 'https://www.snopes.com/fact-check/pope-francis-donald-trump-endorsement/' },
-  { label: 'Wikipedia entry', url: 'https://en.wikipedia.org/wiki/Pizzagate_conspiracy_theory' },
-  { label: 'Guardian article', url: 'https://www.theguardian.com/world' }
+  {
+    label: 'BBC Future',
+    url: 'https://www.bbc.com/future/article/20260422-bees-and-breadfruit-how-fijians-predict-cyclones'
+  },
+  {
+    label: 'Snopes fact-check',
+    url: 'https://www.snopes.com/fact-check/pope-francis-donald-trump-endorsement/'
+  },
+  {
+    label: 'Wikipedia',
+    url: 'https://en.wikipedia.org/wiki/Pizzagate_conspiracy_theory'
+  },
+  {
+    label: 'Guardian long read',
+    url: 'https://www.theguardian.com/news/2026/jun/18/can-ecosystems-malfunction'
+  },
+  {
+    label: 'NPR health feature',
+    url: 'https://www.npr.org/2026/01/07/nx-s1-5667021'
+  },
+  {
+    label: 'The Conversation',
+    url: 'https://theconversation.com/what-is-deja-vu-and-why-do-we-get-it-149943'
+  }
 ];
 
 // ---- Friendly error mapping -----------------------------------------------
-function friendlyErrorMessage(raw: string | undefined | null): string {
+
+// Well-known publishers whose articles routinely fail extraction — either they
+// block automated readers, sit behind a paywall, or render content client-side.
+// Matched by domain suffix so subdomains (m.cbsnews.com, etc.) still hit.
+const DOMAIN_ERROR_MESSAGES: ReadonlyArray<{ domains: string[]; message: string }> = [
+  {
+    domains: ['reuters.com'],
+    message: 'Reuters blocks automated readers and requires a subscription. Try a BBC, AP, or NPR article instead.'
+  },
+  {
+    domains: ['nytimes.com', 'nyt.com'],
+    message: 'New York Times requires a subscription. Try BBC or NPR for similar coverage.'
+  },
+  {
+    domains: ['wsj.com'],
+    message: 'Wall Street Journal requires a subscription. Try The Conversation for similar in-depth analysis.'
+  },
+  {
+    domains: ['washingtonpost.com', 'wapo.st'],
+    message: 'Washington Post requires a subscription. Try BBC, NPR, or Guardian instead.'
+  },
+  {
+    domains: ['bloomberg.com'],
+    message: 'Bloomberg requires a subscription. Try BBC or AP for similar financial reporting.'
+  },
+  {
+    domains: ['ft.com'],
+    message: 'Financial Times requires a subscription. Try BBC or Guardian for similar coverage.'
+  },
+  {
+    domains: ['economist.com'],
+    message: 'The Economist requires a subscription. Try The Conversation or BBC for similar depth.'
+  },
+  {
+    domains: ['cbsnews.com'],
+    message: "CBS News uses JavaScript-only rendering that we can't read. Try BBC, NPR, or AP."
+  },
+  {
+    domains: ['nbcnews.com'],
+    message: 'NBC News uses JavaScript-only rendering. Try BBC, NPR, or AP instead.'
+  },
+  {
+    domains: ['abcnews.go.com'],
+    message: 'ABC News uses JavaScript-only rendering. Try BBC, NPR, or AP instead.'
+  },
+  {
+    domains: ['cnn.com'],
+    message: 'CNN often blocks automated readers. Try BBC or AP for similar coverage.'
+  },
+  {
+    domains: ['foxnews.com'],
+    message: 'Fox News often blocks automated readers. Try BBC or AP for similar coverage.'
+  },
+  {
+    domains: ['medium.com'],
+    message: "Medium articles behind their paywall can't be read. Try a public article instead."
+  },
+  {
+    domains: ['substack.com'],
+    message: "Paywalled Substack posts can't be read. Public posts work — try a different URL."
+  }
+];
+
+/**
+ * Extract a normalised hostname from a user-typed URL string. Returns null when
+ * the input isn't a parseable URL — callers fall back to the generic message.
+ * Strips `www.` so the same suffix-match table covers `www.cnn.com` and `cnn.com`.
+ */
+function inputDomain(input: string | undefined | null): string | null {
+  if (!input) return null;
+  const raw = input.trim();
+  if (!raw) return null;
+  // Allow bare hostnames like "cnn.com/foo" by prepending a scheme.
+  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const host = new URL(candidate).hostname.toLowerCase();
+    return host.startsWith('www.') ? host.slice(4) : host;
+  } catch {
+    return null;
+  }
+}
+
+/** Returns the matching publisher-specific message for the input URL, or null. */
+function domainErrorMessage(input: string | undefined | null): string | null {
+  const host = inputDomain(input);
+  if (!host) return null;
+  for (const entry of DOMAIN_ERROR_MESSAGES) {
+    for (const d of entry.domains) {
+      // Suffix match so m.cnn.com and cnn.com both hit, but cnn.com.evil.example
+      // never does (we require a dot boundary or exact equality).
+      if (host === d || host.endsWith(`.${d}`)) {
+        return entry.message;
+      }
+    }
+  }
+  return null;
+}
+
+function friendlyErrorMessage(
+  raw: string | undefined | null,
+  inputUrl?: string | null
+): string {
+  // Domain-specific copy beats the generic per-status text, because the user
+  // can act on it ("try BBC instead") rather than just retrying the same URL.
+  const domainHit = domainErrorMessage(inputUrl);
+  if (domainHit) return domainHit;
+
   if (!raw) return "Couldn't read this article. Try a different URL.";
   const msg = raw.toLowerCase();
 
@@ -1369,7 +1502,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
               <View style={styles.card}>
                 <Text style={styles.errorTitle}>Couldn't analyze this URL</Text>
                 <Text style={styles.errorMessage}>
-                  {friendlyErrorMessage(failedJob.error.message)}
+                  {friendlyErrorMessage(failedJob.error.message, url)}
                 </Text>
                 <Pressable
                   accessibilityRole="button"
@@ -1393,7 +1526,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
             <View style={styles.stack}>
               <View style={styles.card}>
                 <Text style={styles.errorTitle}>Error</Text>
-                <Text style={styles.errorMessage}>{friendlyErrorMessage(state.message)}</Text>
+                <Text style={styles.errorMessage}>{friendlyErrorMessage(state.message, url)}</Text>
                 <Pressable
                   accessibilityRole="button"
                   onPress={onReset}
