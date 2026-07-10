@@ -124,7 +124,7 @@ export function MediaLiteracyScreen({ onBack }: MediaLiteracyScreenProps) {
         ))}
 
         <Text style={styles.disclaimer}>
-          CredCheck is a tool for media literacy practice — it doesn't replace your own judgment.
+          Sift is a tool for media literacy practice — it doesn't replace your own judgment.
           The skills above work even when our score is wrong.
         </Text>
       </ScrollView>

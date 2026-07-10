@@ -1,41 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- Background: soft sage green -->
-  <rect width="1024" height="1024" fill="#A8D5BA"/>
-
-  <!-- Subtle gradient overlay -->
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.18"/>
-      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    <linearGradient id="A_paper" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F5EFE0"/>
+      <stop offset="100%" stop-color="#E8DFCB"/>
     </linearGradient>
-    <linearGradient id="cGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#2F6B5C"/>
-      <stop offset="100%" stop-color="#1F4D43"/>
+    <linearGradient id="A_hl" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#F4D648" stop-opacity="0.85"/>
+      <stop offset="50%" stop-color="#F5D93A" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#F0CD30" stop-opacity="0.75"/>
     </linearGradient>
+    <filter id="A_noise"><feTurbulence baseFrequency="0.9" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 0.55 0 0 0 0 0.48 0 0 0 0 0.35 0 0 0 0.15 0"/><feComposite operator="in" in2="SourceGraphic"/></filter>
+    <filter id="A_ink" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence baseFrequency="0.06" numOctaves="2" seed="5"/><feDisplacementMap in="SourceGraphic" scale="14"/></filter>
   </defs>
-  <rect width="1024" height="1024" fill="url(#bgGrad)"/>
-
-  <!-- Cream inner circle -->
-  <circle cx="512" cy="512" r="380" fill="#FAF4E6"/>
-
-  <!-- Bold rounded C (opens to the right) -->
-  <path
-    d="M 712 380
-       A 240 240 0 1 0 712 644
-       L 712 540
-       A 140 140 0 1 1 712 484
-       Z"
-    fill="url(#cGrad)"
-    stroke="none"/>
-
-  <!-- Small green checkmark badge in lower-right -->
-  <circle cx="720" cy="700" r="105" fill="#FFFFFF"/>
-  <circle cx="720" cy="700" r="92" fill="#3FA66B"/>
-  <path
-    d="M 668 700 L 705 738 L 778 660"
-    stroke="#FFFFFF"
-    stroke-width="32"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    fill="none"/>
+  <rect width="1024" height="1024" fill="url(#A_paper)"/>
+  <rect width="1024" height="1024" filter="url(#A_noise)" opacity="0.55"/>
+  <g transform="rotate(-2 512 550)">
+    <rect x="112" y="450" width="800" height="200" rx="20" fill="url(#A_hl)" filter="url(#A_ink)"/>
+  </g>
+  <text x="512" y="618" text-anchor="middle" font-family="Georgia, serif" font-size="340" font-weight="700" fill="#1F1810" letter-spacing="-4">sift</text>
 </svg>

@@ -317,7 +317,7 @@ function friendlyErrorMessage(
     msg.includes('blocked host') ||
     msg.includes('internal network')
   ) {
-    return 'That URL points to a private network. CredCheck only checks public articles.';
+    return 'That URL points to a private network. Sift only checks public articles.';
   }
 
   if (msg.includes('401') || msg.includes('403') || msg.includes('forbidden') || msg.includes('unauthorized')) {
@@ -1176,7 +1176,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
     const articleUrl = url;
     const title = job.article?.title ?? 'Article';
     const message =
-      `${title} — scored ${job.overall}/100 (${bucketLabel(job.bucket)}) on CredCheck. ` +
+      `${title} — scored ${job.overall}/100 (${bucketLabel(job.bucket)}) on Sift. ` +
       `Check it yourself: ${articleUrl}`;
     try {
       await Share.share({ message, url: articleUrl });
@@ -1196,7 +1196,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
       <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         <View style={styles.headerRow}>
           <View style={{ flexShrink: 1 }}>
-            <Text style={styles.title}>Credibility Check</Text>
+            <Text style={styles.title}>Sift</Text>
             <Text style={styles.subtitle}>Paste an article URL.</Text>
           </View>
           <View style={styles.headerLinks}>
