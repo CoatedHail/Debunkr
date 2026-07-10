@@ -3,23 +3,23 @@ layout: default
 title: Privacy Policy
 ---
 
-# CredCheck Privacy Policy
+# Sift Privacy Policy
 
 **Last updated:** June 10, 2026
 **Operator:** Four-Color AI LLC ("we", "us", "our")
 **Contact:** oscarsmily@gmail.com
 
-> **DRAFT.** This document is a starting point for legal review and not a substitute for professional legal advice. Before launching CredCheck publicly we are obtaining attorney review. Send questions to the contact above.
+> **DRAFT.** This document is a starting point for legal review and not a substitute for professional legal advice. Before launching Sift publicly we are obtaining attorney review. Send questions to the contact above.
 
 ---
 
-## 1. What CredCheck does
+## 1. What Sift does
 
-CredCheck is a mobile app that estimates the credibility of online news articles. You paste a URL; we fetch the article, score it 0-100, and explain why. Optionally you can run a "Deep Analysis" that adds a fact-check pipeline.
+Sift is a mobile app that estimates the credibility of online news articles. You paste a URL; we fetch the article, score it 0-100, and explain why. Optionally you can run a "Deep Analysis" that adds a fact-check pipeline.
 
 ## 2. Who this policy applies to
 
-Anyone who installs and uses CredCheck on iOS (and Android in the future).
+Anyone who installs and uses Sift on iOS (and Android in the future).
 
 ## 3. Information we collect
 
@@ -39,7 +39,7 @@ We collect:
 - Apple ID, Apple advertising identifier (IDFA), or persistent ID across apps
 - Contacts, calendar, photos, microphone, camera, or other on-device data
 - Your physical location (we don't request location permission)
-- Browsing history outside of URLs you explicitly paste into CredCheck
+- Browsing history outside of URLs you explicitly paste into Sift
 - Health, financial, or biometric data
 
 ## 5. Article content
@@ -91,7 +91,7 @@ Our lawful basis is **legitimate interest** (operating and improving the service
 
 ## 9. Children's privacy
 
-CredCheck is rated **17+** in the App Store because we display rated news content and discuss politically sensitive topics. We do not knowingly collect data from children under 13. If you believe a child under 13 has used the service, contact us and we will delete associated records.
+Sift is rated **17+** in the App Store because we display rated news content and discuss politically sensitive topics. We do not knowingly collect data from children under 13. If you believe a child under 13 has used the service, contact us and we will delete associated records.
 
 ## 10. Security
 

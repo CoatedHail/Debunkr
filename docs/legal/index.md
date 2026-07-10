@@ -1,9 +1,9 @@
 ---
 layout: default
-title: CredCheck Legal
+title: Sift Legal
 ---
 
-# CredCheck — Legal
+# Sift — Legal
 
 - [Privacy Policy](./privacy)
 - [Terms of Service](./terms)
