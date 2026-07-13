@@ -6,6 +6,7 @@ import {
   Text,
   View
 } from 'react-native';
+import { t } from '../lib/i18n';
 
 export interface MediaLiteracyScreenProps {
   onBack: () => void;
@@ -16,60 +17,22 @@ interface TipCard {
   body: string;
 }
 
-const SIFT_CARDS: TipCard[] = [
-  {
-    title: 'Stop',
-    body:
-      'When a story makes you feel strong emotion, pause. Strong emotion is the most common trigger for sharing misinformation. Don\'t engage until you\'ve checked.'
-  },
-  {
-    title: 'Investigate the source',
-    body:
-      "Open a new tab. Search '[publisher name] Wikipedia' or '[publisher name] reliability'. Don't rely only on the site's About page."
-  },
-  {
-    title: 'Find better coverage',
-    body:
-      'Search the same story across multiple sources. If only one publisher is reporting a major event, that\'s a red flag. If reliable sources contradict it, trust them.'
-  },
-  {
-    title: 'Trace the original',
-    body:
-      'Most news articles are about something — a study, a statement, an event. Find the primary source. Quotes can be cropped. Statistics can be misrepresented. Go upstream when you can.'
-  }
+// Keys are looked up at render time so a language switch flows through
+// without re-instantiating anything at module scope.
+const SIFT_KEY_PAIRS: [string, string][] = [
+  ['mediaLit.sift.stopTitle',         'mediaLit.sift.stopBody'],
+  ['mediaLit.sift.investigateTitle',  'mediaLit.sift.investigateBody'],
+  ['mediaLit.sift.findTitle',         'mediaLit.sift.findBody'],
+  ['mediaLit.sift.traceTitle',        'mediaLit.sift.traceBody']
 ];
 
-const TACTIC_CARDS: TipCard[] = [
-  {
-    title: 'Loaded language',
-    body:
-      "Words that smuggle in opinion. 'Bombshell report' vs 'investigation finds'. Read the same story in two outlets and compare the verbs."
-  },
-  {
-    title: 'False equivalence',
-    body:
-      "Treating a major scandal and a minor mistake as 'both sides did something wrong'. Look for where the article downplays a significant difference."
-  },
-  {
-    title: 'Cherry-picked statistics',
-    body:
-      'Picking the one statistic that supports the argument while ignoring the rest. Ask: was this the only data point available? What was the trend over time?'
-  },
-  {
-    title: 'Anonymous sources',
-    body:
-      'Sometimes necessary (whistleblowers). Often a red flag (no accountability). The most reliable articles cite named people you can verify.'
-  },
-  {
-    title: 'Image and video out of context',
-    body:
-      'A real photo from a different event. A real quote cropped to remove qualifiers. Reverse-image-search and check timestamps.'
-  },
-  {
-    title: 'Headline ≠ article',
-    body:
-      'Many readers share based on headline alone. The headline often overpromises what the article actually proves. Read the body, especially the middle.'
-  }
+const TACTIC_KEY_PAIRS: [string, string][] = [
+  ['mediaLit.tactics.loadedTitle',    'mediaLit.tactics.loadedBody'],
+  ['mediaLit.tactics.falseEqTitle',   'mediaLit.tactics.falseEqBody'],
+  ['mediaLit.tactics.cherryTitle',    'mediaLit.tactics.cherryBody'],
+  ['mediaLit.tactics.anonTitle',      'mediaLit.tactics.anonBody'],
+  ['mediaLit.tactics.imageTitle',     'mediaLit.tactics.imageBody'],
+  ['mediaLit.tactics.headlineTitle',  'mediaLit.tactics.headlineBody']
 ];
 
 function TipCardView({ index, title, body }: { index: number; title: string; body: string }) {
@@ -87,46 +50,40 @@ function TipCardView({ index, title, body }: { index: number; title: string; bod
 }
 
 export function MediaLiteracyScreen({ onBack }: MediaLiteracyScreenProps) {
+  const siftCards: TipCard[] = SIFT_KEY_PAIRS.map(([tk, bk]) => ({ title: t(tk), body: t(bk) }));
+  const tacticCards: TipCard[] = TACTIC_KEY_PAIRS.map(([tk, bk]) => ({ title: t(tk), body: t(bk) }));
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
         <Pressable onPress={onBack} style={styles.back}>
-          <Text style={styles.backText}>← Back</Text>
+          <Text style={styles.backText}>{t('mediaLit.back')}</Text>
         </Pressable>
 
-        <Text style={styles.title}>Media literacy</Text>
-        <Text style={styles.subtitle}>Skills for spotting bad info — not just our rating.</Text>
+        <Text style={styles.title}>{t('mediaLit.title')}</Text>
+        <Text style={styles.subtitle}>{t('mediaLit.subtitle')}</Text>
 
-        <Text style={styles.sectionHeader}>THE SIFT METHOD</Text>
+        <Text style={styles.sectionHeader}>{t('mediaLit.siftHeader')}</Text>
         <View style={styles.introCard}>
-          <Text style={styles.introText}>
-            Four moves you can run on any article in under a minute. Build the habit and you'll
-            catch most misinformation before it sticks.
-          </Text>
+          <Text style={styles.introText}>{t('mediaLit.siftIntro')}</Text>
         </View>
 
-        {SIFT_CARDS.map((c, i) => (
+        {siftCards.map((c, i) => (
           <TipCardView key={c.title} index={i + 1} title={c.title} body={c.body} />
         ))}
 
-        <Text style={styles.footnote}>
-          SIFT is the most-evidenced media-literacy framework, developed by Mike Caulfield. Used
-          widely in journalism schools.
-        </Text>
+        <Text style={styles.footnote}>{t('mediaLit.siftFootnote')}</Text>
 
-        <Text style={[styles.sectionHeader, { marginTop: 24 }]}>COMMON MANIPULATION TACTICS</Text>
+        <Text style={[styles.sectionHeader, { marginTop: 24 }]}>{t('mediaLit.tacticsHeader')}</Text>
         <View style={styles.introCard}>
-          <Text style={styles.introText}>Once you know these, you'll see them everywhere.</Text>
+          <Text style={styles.introText}>{t('mediaLit.tacticsIntro')}</Text>
         </View>
 
-        {TACTIC_CARDS.map((c, i) => (
+        {tacticCards.map((c, i) => (
           <TipCardView key={c.title} index={i + 1} title={c.title} body={c.body} />
         ))}
 
-        <Text style={styles.disclaimer}>
-          Sift is a tool for media literacy practice — it doesn't replace your own judgment.
-          The skills above work even when our score is wrong.
-        </Text>
+        <Text style={styles.disclaimer}>{t('mediaLit.disclaimer')}</Text>
       </ScrollView>
     </SafeAreaView>
   );

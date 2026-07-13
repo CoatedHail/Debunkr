@@ -33,13 +33,16 @@ const SEED_DOMAINS = [
   'nature.com',
   'nationalgeographic.com',
   'smithsonianmag.com',
-  'latimes.com'
+  'latimes.com',
+  'caixin.com',
+  'scmp.com',
+  'sixthtone.com'
 ];
 
 describe('loadTier1Domains', () => {
-  it('returns a Set with 30 entries', () => {
+  it('returns a Set with 33 entries', () => {
     const set = loadTier1Domains();
-    expect(set.size).toBe(30);
+    expect(set.size).toBe(33);
   });
 });
 

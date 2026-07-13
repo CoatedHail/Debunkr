@@ -41,4 +41,42 @@ describe('createDatasetLookup', () => {
     const result = lookup('NYTimes.COM');
     expect(result.reliabilityTier).toBe('high');
   });
+
+  // ---- Chinese-language publishers (v1.4) ----
+  //
+  // The Chinese diaspora is a real user segment and CredCheck's US-only
+  // publisher list is a gap. These assertions pin the tiers we shipped so a
+  // future edit to the CSV doesn't silently downgrade Caixin or promote
+  // Global Times. Wikipedia perennial-source guidance is thin for Chinese
+  // outlets, so the tier reflects a blend of that guidance + editorial
+  // independence + track record in independent reporting.
+  it('rates Caixin (caixin.com) as high — respected independent business/investigative outlet', () => {
+    const lookup = createDatasetLookup();
+    expect(lookup('caixin.com').reliabilityTier).toBe('high');
+  });
+
+  it('rates SCMP (scmp.com) as high — established HK broadsheet', () => {
+    const lookup = createDatasetLookup();
+    expect(lookup('scmp.com').reliabilityTier).toBe('high');
+  });
+
+  it('rates Sixth Tone (sixthtone.com) as high — English-language SUMG feature outlet', () => {
+    const lookup = createDatasetLookup();
+    expect(lookup('sixthtone.com').reliabilityTier).toBe('high');
+  });
+
+  it('rates Xinhua (xinhuanet.com) as mixed — official state news agency', () => {
+    const lookup = createDatasetLookup();
+    expect(lookup('xinhuanet.com').reliabilityTier).toBe('mixed');
+  });
+
+  it("rates People's Daily (people.com.cn) as mixed — official state paper", () => {
+    const lookup = createDatasetLookup();
+    expect(lookup('people.com.cn').reliabilityTier).toBe('mixed');
+  });
+
+  it('rates Global Times (globaltimes.cn) as low — tabloid state media', () => {
+    const lookup = createDatasetLookup();
+    expect(lookup('globaltimes.cn').reliabilityTier).toBe('low');
+  });
 });

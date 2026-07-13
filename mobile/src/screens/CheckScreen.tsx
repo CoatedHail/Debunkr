@@ -17,6 +17,7 @@ import { submitCheck, getJob, startDeep, submitFeedback, requestPublisherResearc
 import { getDeviceId } from '../lib/device-id';
 import { loadRecentChecks, pushRecentCheck, type RecentCheck } from '../lib/recent-checks';
 import { EvidenceCard } from '../components/EvidenceCard';
+import { t, setLocale, currentLocale, type SupportedLocale } from '../lib/i18n';
 import type {
   AgentReport,
   Confidence,
@@ -53,46 +54,40 @@ interface TooltipCopy {
   askYourself: string;
 }
 
-const TOOLTIPS: Record<string, TooltipCopy> = {
-  'OVERALL CREDIBILITY': {
-    whatThisChecks:
-      'A combined score: 45% publisher reputation, 45% AI-judged article quality, 10% tone & balance.',
-    askYourself:
-      'Does the score match your gut read? A weak score from a strong source — or vice versa — is worth a closer look.'
-  },
-  'RATING STRENGTH': {
-    whatThisChecks:
-      'How much data we had to make this rating. High = we knew the publisher and read the article cleanly. Low = we had to fall back to article-level signals.',
-    askYourself:
-      'When rating strength is low, treat the score as a guess, not a verdict. Look for primary sources yourself.'
-  },
-  ARTICLE: {
-    whatThisChecks: 'The title, author, and a short excerpt extracted from the page.',
-    askYourself:
-      'Does the headline match what the article actually says? Is there a named author with verifiable credentials?'
-  },
-  BREAKDOWN: {
-    whatThisChecks: 'The three signals that produced the overall score, scored independently.',
-    askYourself:
-      "If one signal is much lower than the others, that's where to focus your skepticism."
-  },
-  PUBLISHER: {
-    whatThisChecks:
-      'Who published this and how reputable they are by independent assessment (Wikipedia Perennial Sources, IFCN).',
-    askYourself:
-      'Even reputable publishers can be wrong. Even unknown publishers can be correct. Reputation is one signal, not the truth.'
-  },
-  "DEVIL'S ADVOCATE": {
-    whatThisChecks: 'An AI-generated argument for why the rating could be wrong. We always show this.',
-    askYourself:
-      'Read this BEFORE deciding. The strongest version of the opposite view trains your media literacy more than agreeing with the score.'
-  },
-  'DEEP ANALYSIS': {
-    whatThisChecks:
-      'Three sequential AI calls (Skeptic, Advocate, Judge) plus an external fact-check pipeline against Google Fact Check Tools and Wikipedia.',
-    askYourself: 'Read the Skeptic and Advocate sections before the Judge. Watch where they disagree.'
+// Tooltip section IDs are stable so they can key into TOOLTIP_TITLES (for the
+// section header we display in the modal) and into the JSON tooltip strings.
+// They're also the same strings we've historically used as the "info key" —
+// leaving those unchanged means state around openInfo() still works.
+const TOOLTIP_KEYS = [
+  'OVERALL CREDIBILITY',
+  'RATING STRENGTH',
+  'ARTICLE',
+  'BREAKDOWN',
+  'PUBLISHER',
+  "DEVIL'S ADVOCATE",
+  'DEEP ANALYSIS'
+] as const;
+
+function tooltipSectionTitle(key: string): string {
+  switch (key) {
+    case 'OVERALL CREDIBILITY': return t('sections.overallCredibility');
+    case 'RATING STRENGTH':     return t('sections.ratingStrength');
+    case 'ARTICLE':             return t('sections.article');
+    case 'BREAKDOWN':           return t('sections.breakdown');
+    case 'PUBLISHER':           return t('sections.publisher');
+    case "DEVIL'S ADVOCATE":    return t('sections.devilsAdvocate');
+    case 'DEEP ANALYSIS':       return t('sections.deepAnalysis');
+    default:                    return key;
   }
-};
+}
+
+function getTooltip(key: string): TooltipCopy | null {
+  if (!(TOOLTIP_KEYS as readonly string[]).includes(key)) return null;
+  return {
+    whatThisChecks: t(`tooltips.${key}.whatThisChecks`),
+    askYourself: t(`tooltips.${key}.askYourself`)
+  };
+}
 
 // ---- Brand palette ---------------------------------------------------------
 const COLORS = {
@@ -120,41 +115,30 @@ interface HeroStat {
   source: string;
 }
 
-const HERO_STATS: HeroStat[] = [
-  {
-    quote: "82% of students can't tell a sponsored article from a news story.",
-    source: 'Stanford History Education Group, 2016'
-  },
-  {
-    quote: 'On Twitter, false stories spread 6× faster than true ones.',
-    source: 'MIT Sloan, 2018 (Science)'
-  },
-  {
-    quote: "A 3-hour 'Civic Online Reasoning' intervention improved fact-checking skills by 50%.",
-    source: 'Stanford, 2022'
-  },
-  {
-    quote: 'Only 30% of Americans trust news media, but 86% read news on digital devices.',
-    source: 'Pew Research, 2024'
-  },
-  {
-    quote: 'Lateral reading reduces susceptibility to misinformation by about 2×.',
-    source: 'Stanford Internet Observatory'
-  },
-  {
-    quote: 'Disinformation generates 6× more Facebook engagement than factual news.',
-    source: 'NYU, 2021'
-  }
-];
+// Hero stats and Did-You-Know tips read from the i18n bundle at render time so
+// they follow the active language. Indices 0-5 map to the six stats/tips per
+// day-of-month rotation.
+function heroStatsFromI18n(): HeroStat[] {
+  return [
+    { quote: t('heroStats.s0Quote'), source: t('heroStats.s0Source') },
+    { quote: t('heroStats.s1Quote'), source: t('heroStats.s1Source') },
+    { quote: t('heroStats.s2Quote'), source: t('heroStats.s2Source') },
+    { quote: t('heroStats.s3Quote'), source: t('heroStats.s3Source') },
+    { quote: t('heroStats.s4Quote'), source: t('heroStats.s4Source') },
+    { quote: t('heroStats.s5Quote'), source: t('heroStats.s5Source') }
+  ];
+}
 
-const DID_YOU_KNOW_TIPS: string[] = [
-  'When a story makes you feel strong emotion, pause before sharing. Strong emotion is the #1 driver of misinformation spread.',
-  'Lateral reading — opening new tabs to verify — is faster AND more accurate than carefully evaluating one source.',
-  'Anonymous sources are sometimes necessary (whistleblowers), often a red flag. The most reliable articles cite named, verifiable people.',
-  'A headline can be misleading even when the article is accurate. Always read past the headline before sharing.',
-  'Real photos used in fake contexts is the most common form of visual misinformation. A reverse image search takes 10 seconds.',
-  'If only one publisher is reporting a major event, that’s a red flag. Mainstream stories get covered by multiple Tier-1 sources.'
-];
+function didKnowTipsFromI18n(): string[] {
+  return [
+    t('didKnowTips.t0'),
+    t('didKnowTips.t1'),
+    t('didKnowTips.t2'),
+    t('didKnowTips.t3'),
+    t('didKnowTips.t4'),
+    t('didKnowTips.t5')
+  ];
+}
 
 function dailyIndex(): number {
   return new Date().getUTCDate() % 6;
@@ -173,91 +157,41 @@ interface ExampleChip {
 // section features, and The Conversation explainers. We deliberately avoid
 // front-page news slugs and any publisher known to block automated fetches
 // (Reuters, NYT, WSJ, WaPo, Bloomberg, CBS, NBC, CNN, FT, Economist).
-const EXAMPLE_CHIPS: ExampleChip[] = [
-  {
-    label: 'BBC Future',
-    url: 'https://www.bbc.com/future/article/20260422-bees-and-breadfruit-how-fijians-predict-cyclones'
-  },
-  {
-    label: 'Snopes fact-check',
-    url: 'https://www.snopes.com/fact-check/pope-francis-donald-trump-endorsement/'
-  },
-  {
-    label: 'Wikipedia',
-    url: 'https://en.wikipedia.org/wiki/Pizzagate_conspiracy_theory'
-  },
-  {
-    label: 'Guardian long read',
-    url: 'https://www.theguardian.com/news/2026/jun/18/can-ecosystems-malfunction'
-  },
-  {
-    label: 'The Conversation',
-    url: 'https://theconversation.com/what-is-deja-vu-and-why-do-we-get-it-149943'
-  }
+const EXAMPLE_URLS = [
+  { i18nKey: 'example.bbc',          url: 'https://www.bbc.com/future/article/20260422-bees-and-breadfruit-how-fijians-predict-cyclones' },
+  { i18nKey: 'example.snopes',       url: 'https://www.snopes.com/fact-check/pope-francis-donald-trump-endorsement/' },
+  { i18nKey: 'example.wiki',         url: 'https://en.wikipedia.org/wiki/Pizzagate_conspiracy_theory' },
+  { i18nKey: 'example.guardian',     url: 'https://www.theguardian.com/news/2026/jun/18/can-ecosystems-malfunction' },
+  { i18nKey: 'example.conversation', url: 'https://theconversation.com/what-is-deja-vu-and-why-do-we-get-it-149943' }
 ];
+
+function exampleChips(): ExampleChip[] {
+  return EXAMPLE_URLS.map((e) => ({ label: t(e.i18nKey), url: e.url }));
+}
 
 // ---- Friendly error mapping -----------------------------------------------
 
 // Well-known publishers whose articles routinely fail extraction — either they
 // block automated readers, sit behind a paywall, or render content client-side.
 // Matched by domain suffix so subdomains (m.cbsnews.com, etc.) still hit.
-const DOMAIN_ERROR_MESSAGES: ReadonlyArray<{ domains: string[]; message: string }> = [
-  {
-    domains: ['reuters.com'],
-    message: 'Reuters blocks automated readers and requires a subscription. Try a BBC or Guardian article instead.'
-  },
-  {
-    domains: ['nytimes.com', 'nyt.com'],
-    message: 'New York Times requires a subscription. Try BBC or Guardian for similar coverage.'
-  },
-  {
-    domains: ['wsj.com'],
-    message: 'Wall Street Journal requires a subscription. Try The Conversation for similar in-depth analysis.'
-  },
-  {
-    domains: ['washingtonpost.com', 'wapo.st'],
-    message: 'Washington Post requires a subscription. Try BBC or Guardian instead.'
-  },
-  {
-    domains: ['bloomberg.com'],
-    message: 'Bloomberg requires a subscription. Try BBC or AP for similar financial reporting.'
-  },
-  {
-    domains: ['ft.com'],
-    message: 'Financial Times requires a subscription. Try BBC or Guardian for similar coverage.'
-  },
-  {
-    domains: ['economist.com'],
-    message: 'The Economist requires a subscription. Try The Conversation or BBC for similar depth.'
-  },
-  {
-    domains: ['cbsnews.com'],
-    message: "CBS News uses JavaScript-only rendering that we can't read. Try BBC or Wikipedia."
-  },
-  {
-    domains: ['nbcnews.com'],
-    message: 'NBC News uses JavaScript-only rendering. Try BBC or Wikipedia instead.'
-  },
-  {
-    domains: ['abcnews.go.com'],
-    message: 'ABC News uses JavaScript-only rendering. Try BBC or Wikipedia instead.'
-  },
-  {
-    domains: ['cnn.com'],
-    message: 'CNN often blocks automated readers. Try BBC or AP for similar coverage.'
-  },
-  {
-    domains: ['foxnews.com'],
-    message: 'Fox News often blocks automated readers. Try BBC or AP for similar coverage.'
-  },
-  {
-    domains: ['medium.com'],
-    message: "Medium articles behind their paywall can't be read. Try a public article instead."
-  },
-  {
-    domains: ['substack.com'],
-    message: "Paywalled Substack posts can't be read. Public posts work — try a different URL."
-  }
+// Map domain suffixes -> i18n error key. The message text is looked up at
+// call time so a locale switch after a failed check still shows the right
+// language.
+const DOMAIN_ERROR_KEYS: ReadonlyArray<{ domains: string[]; i18nKey: string }> = [
+  { domains: ['reuters.com'],                    i18nKey: 'errors.reuters' },
+  { domains: ['nytimes.com', 'nyt.com'],         i18nKey: 'errors.nytimes' },
+  { domains: ['wsj.com'],                        i18nKey: 'errors.wsj' },
+  { domains: ['washingtonpost.com', 'wapo.st'],  i18nKey: 'errors.washingtonpost' },
+  { domains: ['bloomberg.com'],                  i18nKey: 'errors.bloomberg' },
+  { domains: ['ft.com'],                         i18nKey: 'errors.ft' },
+  { domains: ['economist.com'],                  i18nKey: 'errors.economist' },
+  { domains: ['cbsnews.com'],                    i18nKey: 'errors.cbs' },
+  { domains: ['nbcnews.com'],                    i18nKey: 'errors.nbc' },
+  { domains: ['abcnews.go.com'],                 i18nKey: 'errors.abc' },
+  { domains: ['cnn.com'],                        i18nKey: 'errors.cnn' },
+  { domains: ['foxnews.com'],                    i18nKey: 'errors.fox' },
+  { domains: ['medium.com'],                     i18nKey: 'errors.medium' },
+  { domains: ['substack.com'],                   i18nKey: 'errors.substack' }
 ];
 
 /**
@@ -283,12 +217,12 @@ function inputDomain(input: string | undefined | null): string | null {
 function domainErrorMessage(input: string | undefined | null): string | null {
   const host = inputDomain(input);
   if (!host) return null;
-  for (const entry of DOMAIN_ERROR_MESSAGES) {
+  for (const entry of DOMAIN_ERROR_KEYS) {
     for (const d of entry.domains) {
       // Suffix match so m.cnn.com and cnn.com both hit, but cnn.com.evil.example
       // never does (we require a dot boundary or exact equality).
       if (host === d || host.endsWith(`.${d}`)) {
-        return entry.message;
+        return t(entry.i18nKey);
       }
     }
   }
@@ -304,7 +238,7 @@ function friendlyErrorMessage(
   const domainHit = domainErrorMessage(inputUrl);
   if (domainHit) return domainHit;
 
-  if (!raw) return "Couldn't read this article. Try a different URL.";
+  if (!raw) return t('errors.generic');
   const msg = raw.toLowerCase();
 
   // SSRF / private network detection (check before status codes — these often
@@ -317,22 +251,22 @@ function friendlyErrorMessage(
     msg.includes('blocked host') ||
     msg.includes('internal network')
   ) {
-    return 'That URL points to a private network. Sift only checks public articles.';
+    return t('errors.ssrf');
   }
 
   if (msg.includes('401') || msg.includes('403') || msg.includes('forbidden') || msg.includes('unauthorized')) {
-    return 'Site needs login or blocks automated fetching. Try an open article.';
+    return t('errors.auth');
   }
   if (msg.includes('404') || msg.includes('not found')) {
-    return 'URL not found. Check for typos.';
+    return t('errors.notFound');
   }
   if (msg.includes('408') || msg.includes('timed out') || msg.includes('timeout')) {
-    return 'The site took too long to respond. Try again.';
+    return t('errors.timeout');
   }
   if (/\b5\d\d\b/.test(msg) || msg.includes('bad gateway') || msg.includes('service unavailable')) {
-    return 'The site is having problems right now. Try again later.';
+    return t('errors.server');
   }
-  return "Couldn't read this article. Try a different URL.";
+  return t('errors.generic');
 }
 
 // ---- Bucket / score helpers -----------------------------------------------
@@ -350,11 +284,11 @@ function overallTintBg(score: number): string {
 
 function bucketLabel(bucket: OverallBucket): string {
   switch (bucket) {
-    case 'highly-credible': return 'Highly credible';
-    case 'mostly-credible': return 'Mostly credible';
-    case 'mixed':           return 'Mixed';
-    case 'questionable':    return 'Questionable';
-    case 'low':             return 'Low credibility';
+    case 'highly-credible': return t('buckets.highly-credible');
+    case 'mostly-credible': return t('buckets.mostly-credible');
+    case 'mixed':           return t('buckets.mixed');
+    case 'questionable':    return t('buckets.questionable');
+    case 'low':             return t('buckets.low');
   }
 }
 
@@ -378,24 +312,24 @@ function tierColor(tier: ReliabilityTier): string {
 
 function tierLabel(tier: ReliabilityTier): string {
   switch (tier) {
-    case 'high':    return 'Generally reliable';
-    case 'medium':  return 'Mixed reputation';
-    case 'mixed':   return 'Mixed reputation';
-    case 'low':     return 'Generally unreliable';
-    case 'unknown': return 'Not in our curated list';
+    case 'high':    return t('tiers.high');
+    case 'medium':  return t('tiers.medium');
+    case 'mixed':   return t('tiers.mixed');
+    case 'low':     return t('tiers.low');
+    case 'unknown': return t('tiers.unknown');
   }
 }
 
 function biasLabel(scale: number): string {
-  if (scale <= -3) return 'Strong left lean';
-  if (scale <= -1) return 'Mild left lean';
-  if (scale === 0) return 'Centered / neutral';
-  if (scale <= 2)  return 'Mild right lean';
-  return 'Strong right lean';
+  if (scale <= -3) return t('bias.strongLeft');
+  if (scale <= -1) return t('bias.mildLeft');
+  if (scale === 0) return t('bias.center');
+  if (scale <= 2)  return t('bias.mildRight');
+  return t('bias.strongRight');
 }
 
 function sourceLabel(s: DatasetVerdict['source']): string {
-  return s === 'curated-wikipedia' ? 'Wikipedia' : 'IFCN';
+  return s === 'curated-wikipedia' ? t('sourceLabel.wikipedia') : t('sourceLabel.ifcn');
 }
 
 // ---- Reusable section-title ------------------------------------------------
@@ -429,7 +363,7 @@ function InfoModal({
             <Text style={styles.modalTitle}>{title}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close"
+              accessibilityLabel={t('language.close')}
               onPress={onClose}
               style={({ pressed }) => [styles.modalClose, pressed && styles.pressed]}
               hitSlop={10}
@@ -437,9 +371,9 @@ function InfoModal({
               <Text style={styles.modalCloseText}>✕</Text>
             </Pressable>
           </View>
-          <Text style={styles.modalSubLabel}>What this checks</Text>
+          <Text style={styles.modalSubLabel}>{t('tooltips.modalWhatThisChecks')}</Text>
           <Text style={styles.modalParagraph}>{copy.whatThisChecks}</Text>
-          <Text style={styles.modalSubLabel}>What you should ask yourself</Text>
+          <Text style={styles.modalSubLabel}>{t('tooltips.modalAskYourself')}</Text>
           <Text style={styles.modalParagraph}>{copy.askYourself}</Text>
         </Pressable>
       </Pressable>
@@ -492,7 +426,7 @@ function AgentCard({ label, color, report, expanded, onToggle }:
           <Text style={styles.agentReasoning}>{report.reasoning}</Text>
           {report.evidence.length > 0 && (
             <View style={{ marginTop: 10 }}>
-              <Text style={styles.agentEvidenceTitle}>Evidence</Text>
+              <Text style={styles.agentEvidenceTitle}>{t('sections.evidence')}</Text>
               {report.evidence.map((e, i) => (
                 <Text key={i} style={styles.agentEvidence}>• {e}</Text>
               ))}
@@ -510,14 +444,14 @@ function DeepAnalysisBlock({ deep, onInfo }: { deep: DeepAnalysis; onInfo: (name
   const [adExpanded, setAdExpanded] = useState(false);
   return (
     <View style={styles.deepBox}>
-      <SectionTitleWithInfo title="DEEP ANALYSIS" onPressInfo={() => onInfo('DEEP ANALYSIS')} />
+      <SectionTitleWithInfo title={t('sections.deepAnalysis')} onPressInfo={() => onInfo('DEEP ANALYSIS')} />
 
       <View style={styles.judgeBox}>
         <View style={styles.judgeLabelRow}>
-          <Text style={styles.judgeLabel}>JUDGE'S VERDICT</Text>
+          <Text style={styles.judgeLabel}>{t('sections.judgesVerdict')}</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="More info about RATING STRENGTH"
+            accessibilityLabel={t('sections.ratingStrength')}
             onPress={() => onInfo('RATING STRENGTH')}
             hitSlop={8}
             style={({ pressed }) => [styles.infoIcon, pressed && styles.pressed]}
@@ -528,16 +462,16 @@ function DeepAnalysisBlock({ deep, onInfo }: { deep: DeepAnalysis; onInfo: (name
         <Text style={styles.judgeVerdict}>{deep.judge.verdict}</Text>
         <View style={[styles.confidencePill, { borderColor: confidenceColor(deep.judge.confidence), marginTop: 10 }]}>
           <Text style={[styles.confidencePillText, { color: confidenceColor(deep.judge.confidence) }]}>
-            {deep.judge.confidence.toUpperCase()} RATING STRENGTH
+            {t(`confidence.${deep.judge.confidence}`)} {t('sections.ratingStrength')}
           </Text>
         </View>
       </View>
 
       {deep.evidence && <EvidenceCard evidence={deep.evidence} />}
 
-      <AgentCard label="SKEPTIC" color={COLORS.lowSoft} report={deep.skeptic}
+      <AgentCard label={t('sections.skeptic')} color={COLORS.lowSoft} report={deep.skeptic}
                  expanded={skExpanded} onToggle={() => setSkExpanded(!skExpanded)} />
-      <AgentCard label="ADVOCATE" color={COLORS.high} report={deep.advocate}
+      <AgentCard label={t('sections.advocate')} color={COLORS.high} report={deep.advocate}
                  expanded={adExpanded} onToggle={() => setAdExpanded(!adExpanded)} />
 
       <Text style={styles.modelLimitation}>{deep.modelLimitation}</Text>
@@ -569,18 +503,18 @@ function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | 
   if (done) {
     return (
       <View style={styles.feedbackBox}>
-        <Text style={styles.feedbackThanks}>Thanks — your feedback helps improve the system.</Text>
+        <Text style={styles.feedbackThanks}>{t('feedback.thanks')}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.feedbackBox}>
-      <Text style={styles.feedbackLabel}>Was this rating fair?</Text>
+      <Text style={styles.feedbackLabel}>{t('feedback.prompt')}</Text>
       <View style={styles.feedbackButtons}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Mark rating as helpful"
+          accessibilityLabel={t('feedback.helpful')}
           disabled={submitting || vote !== null}
           style={({ pressed }) => [
             styles.feedbackButton,
@@ -592,11 +526,11 @@ function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | 
           <Text style={[
             styles.feedbackButtonText,
             vote === 'up' && styles.feedbackButtonTextSelected
-          ]}>Helpful</Text>
+          ]}>{t('feedback.helpful')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Mark rating as not helpful"
+          accessibilityLabel={t('feedback.notHelpful')}
           disabled={submitting || vote !== null}
           style={({ pressed }) => [
             styles.feedbackButton,
@@ -608,7 +542,7 @@ function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | 
           <Text style={[
             styles.feedbackButtonText,
             vote === 'down' && styles.feedbackButtonTextSelected
-          ]}>Not helpful</Text>
+          ]}>{t('feedback.notHelpful')}</Text>
         </Pressable>
       </View>
 
@@ -616,7 +550,7 @@ function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | 
         <View style={{ marginTop: 12 }}>
           <TextInput
             style={styles.feedbackInput}
-            placeholder="Why? (optional)"
+            placeholder={t('feedback.commentPlaceholder')}
             placeholderTextColor={COLORS.textDim}
             value={comment}
             onChangeText={setComment}
@@ -635,7 +569,7 @@ function FeedbackBlock({ jobId, deviceId }: { jobId: string; deviceId: string | 
             disabled={submitting}
             onPress={() => send('down', comment.trim() || undefined)}
           >
-            <Text style={styles.primaryButtonText}>{submitting ? 'Sending…' : 'Send feedback'}</Text>
+            <Text style={styles.primaryButtonText}>{submitting ? t('feedback.sending') : t('feedback.send')}</Text>
           </Pressable>
         </View>
       )}
@@ -656,7 +590,7 @@ function HeadlineBlock({ job, onInfo }: { job: JobResult; onInfo: (name: string)
   const confColor = confidenceColor(confidence);
   return (
     <View style={styles.headlineWrap}>
-      <SectionTitleWithInfo title="OVERALL CREDIBILITY" onPressInfo={() => onInfo('OVERALL CREDIBILITY')} />
+      <SectionTitleWithInfo title={t('sections.overallCredibility')} onPressInfo={() => onInfo('OVERALL CREDIBILITY')} />
       <View style={[styles.scorePill, { backgroundColor: tintBg }]}>
         <Text
           style={[styles.headlineScore, { color }]}
@@ -672,7 +606,7 @@ function HeadlineBlock({ job, onInfo }: { job: JobResult; onInfo: (name: string)
       <Text style={[styles.headlineLabel, { color }]}>{bucketLabel(job.bucket)}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="More info about RATING STRENGTH"
+        accessibilityLabel={t('sections.ratingStrength')}
         onPress={() => onInfo('RATING STRENGTH')}
         hitSlop={6}
         style={({ pressed }) => [
@@ -682,7 +616,7 @@ function HeadlineBlock({ job, onInfo }: { job: JobResult; onInfo: (name: string)
         ]}
       >
         <Text style={[styles.confidencePillText, { color: confColor }]}>
-          {confidence.toUpperCase()} RATING STRENGTH
+          {t(`confidence.${confidence}`)} {t('sections.ratingStrength')}
         </Text>
         <Text style={[styles.confidencePillText, { color: confColor, opacity: 0.7 }]}>ⓘ</Text>
       </Pressable>
@@ -695,32 +629,32 @@ function BreakdownBlock({ job, onInfo }: { job: JobResult; onInfo: (name: string
   if (job.sourceRep === undefined || job.contentQuality === undefined) return null;
   return (
     <View style={styles.card}>
-      <SectionTitleWithInfo title="BREAKDOWN" onPressInfo={() => onInfo('BREAKDOWN')} />
+      <SectionTitleWithInfo title={t('sections.breakdown')} onPressInfo={() => onInfo('BREAKDOWN')} />
 
       <View style={styles.breakdownRow}>
-        <Text style={styles.breakdownName}>Publisher reputation</Text>
+        <Text style={styles.breakdownName}>{t('breakdown.publisherReputation')}</Text>
         <Text style={styles.breakdownScore}>{job.sourceRep}</Text>
       </View>
       <Text style={styles.breakdownSource}>
         {job.sourceRepFrom === 'curated-wikipedia'
-          ? 'from curated Wikipedia consensus'
-          : 'from article-only signals (publisher unknown)'}
+          ? t('breakdown.fromWikipedia')
+          : t('breakdown.fromCheapSignals')}
       </Text>
 
       {job.cheapSignals && (
         <View style={styles.cheapBox}>
-          <Text style={styles.cheapTitle}>SIGNALS USED</Text>
-          <Text style={styles.cheapLine}>{job.cheapSignals.https ? '✓' : '✗'} HTTPS</Text>
-          <Text style={styles.cheapLine}>{job.cheapSignals.hasByline ? '✓' : '✗'} Byline present</Text>
-          <Text style={styles.cheapLine}>{job.cheapSignals.hasSiteName ? '✓' : '✗'} Publisher name extracted</Text>
-          <Text style={styles.cheapLine}>{job.cheapSignals.longEnoughBonus ? '✓' : '✗'} Article {'>'} 2000 chars</Text>
+          <Text style={styles.cheapTitle}>{t('sections.signalsUsed')}</Text>
+          <Text style={styles.cheapLine}>{job.cheapSignals.https ? '✓' : '✗'} {t('breakdown.signal.https')}</Text>
+          <Text style={styles.cheapLine}>{job.cheapSignals.hasByline ? '✓' : '✗'} {t('breakdown.signal.byline')}</Text>
+          <Text style={styles.cheapLine}>{job.cheapSignals.hasSiteName ? '✓' : '✗'} {t('breakdown.signal.siteName')}</Text>
+          <Text style={styles.cheapLine}>{job.cheapSignals.longEnoughBonus ? '✓' : '✗'} {t('breakdown.signal.long')}</Text>
         </View>
       )}
 
       <View style={styles.breakdownDivider} />
 
       <View style={styles.breakdownRow}>
-        <Text style={styles.breakdownName}>Article quality</Text>
+        <Text style={styles.breakdownName}>{t('breakdown.articleQuality')}</Text>
         <Text style={styles.breakdownScore}>{job.contentQuality}</Text>
       </View>
       {job.contentReasoning && (<Text style={styles.breakdownSource}>{job.contentReasoning}</Text>)}
@@ -729,10 +663,10 @@ function BreakdownBlock({ job, onInfo }: { job: JobResult; onInfo: (name: string
         <>
           <View style={styles.breakdownDivider} />
           <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownName}>Tone & balance</Text>
+            <Text style={styles.breakdownName}>{t('breakdown.toneAndBalance')}</Text>
             <Text style={styles.breakdownScoreWord}>{biasLabel(job.bias.scale)}</Text>
           </View>
-          <Text style={styles.breakdownSource}>LLM-estimated, low rating strength on its own.</Text>
+          <Text style={styles.breakdownSource}>{t('breakdown.toneNote')}</Text>
         </>
       )}
     </View>
@@ -750,10 +684,10 @@ function sentimentChipColor(sentiment: PublisherResearchSentiment): { bg: string
 
 function sentimentLabel(sentiment: PublisherResearchSentiment): string {
   switch (sentiment) {
-    case 'positive': return 'Mostly positive';
-    case 'mixed':    return 'Mixed signals';
-    case 'negative': return 'Concerning';
-    case 'unclear':  return 'Not enough info';
+    case 'positive': return t('publisher.sentimentPositive');
+    case 'mixed':    return t('publisher.sentimentMixed');
+    case 'negative': return t('publisher.sentimentNegative');
+    case 'unclear':  return t('publisher.sentimentUnclear');
   }
 }
 
@@ -775,7 +709,7 @@ function AiResearchSection({
     const { bg, fg } = sentimentChipColor(research.sentiment);
     return (
       <View style={styles.aiResearchBox}>
-        <Text style={styles.aiResearchLabel}>WHAT THE WEB SAYS</Text>
+        <Text style={styles.aiResearchLabel}>{t('sections.whatTheWebSays')}</Text>
         <Text style={styles.aiResearchSummary}>{research.summary}</Text>
         <View style={[styles.sentimentChip, { backgroundColor: bg }]}>
           <Text style={[styles.sentimentChipText, { color: fg }]}>
@@ -799,7 +733,7 @@ function AiResearchSection({
           </View>
         )}
         <Text style={styles.aiResearchFootnote}>
-          AI-summarized from independent reporting. Cached for 24 hours.
+          {t('publisher.researchFootnote')}
         </Text>
       </View>
     );
@@ -811,7 +745,7 @@ function AiResearchSection({
     <View style={{ marginTop: 12 }}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Look up this publisher with AI web search"
+        accessibilityLabel={t('publisher.lookupButton')}
         disabled={handlers.inFlight}
         onPress={handlers.onLookup}
         style={({ pressed }) => [
@@ -823,14 +757,14 @@ function AiResearchSection({
         {handlers.inFlight ? (
           <View style={styles.inline}>
             <ActivityIndicator color={COLORS.deepTeal} />
-            <Text style={styles.lookupButtonText}>Looking up…</Text>
+            <Text style={styles.lookupButtonText}>{t('publisher.lookupInFlight')}</Text>
           </View>
         ) : (
-          <Text style={styles.lookupButtonText}>Look up this publisher</Text>
+          <Text style={styles.lookupButtonText}>{t('publisher.lookupButton')}</Text>
         )}
       </Pressable>
       <Text style={styles.lookupHint}>
-        Asks Claude to search the web for the publisher's reputation. One call per domain.
+        {t('publisher.lookupHint')}
       </Text>
       {handlers.error && (
         <Text style={styles.lookupError}>{handlers.error}</Text>
@@ -852,11 +786,11 @@ function PublisherDetailBlock({
   return (
     <View style={styles.card}>
       {onInfo ? (
-        <SectionTitleWithInfo title="PUBLISHER" onPressInfo={() => onInfo('PUBLISHER')} />
+        <SectionTitleWithInfo title={t('sections.publisher')} onPressInfo={() => onInfo('PUBLISHER')} />
       ) : (
-        <SectionTitle>PUBLISHER</SectionTitle>
+        <SectionTitle>{t('sections.publisher')}</SectionTitle>
       )}
-      <Text style={styles.publisherDomain}>{publisher.canonicalDomain ?? 'Unknown domain'}</Text>
+      <Text style={styles.publisherDomain}>{publisher.canonicalDomain ?? t('breakdown.unknownDomain')}</Text>
       <View style={[styles.inline, { marginTop: 8 }]}>
         <View style={[styles.tierBadge, { backgroundColor: tierColor(publisher.reliabilityTier) }]}>
           <Text style={styles.tierBadgeText}>{tierLabel(publisher.reliabilityTier)}</Text>
@@ -880,8 +814,7 @@ function PublisherDetailBlock({
       {publisher.reliabilityTier === 'unknown' && (
         <>
           <Text style={styles.unknownCaveat}>
-            Common reasons: local newspaper, niche blog, foreign-language site, or new
-            publication. The score above relies on article-level signals only.
+            {t('publisher.unknownCaveat')}
           </Text>
           <AiResearchSection research={publisher.aiResearch} handlers={aiHandlers} />
         </>
@@ -904,16 +837,18 @@ function HeroStatCard({ stat }: { stat: HeroStat }) {
 // ---- Try-an-example chips (reused in empty + error states) ----------------
 function ExampleChips({
   onPickExample,
-  title = 'TRY AN EXAMPLE'
+  title
 }: {
   onPickExample: (url: string) => void;
   title?: string;
 }) {
+  const effectiveTitle = title ?? t('sections.tryAnExample');
+  const chips = exampleChips();
   return (
     <View style={styles.exampleChipsWrap}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={styles.sectionTitle}>{effectiveTitle}</Text>
       <View style={styles.exampleChipsGrid}>
-        {EXAMPLE_CHIPS.map((c) => (
+        {chips.map((c) => (
           <Pressable
             key={c.url}
             accessibilityRole="button"
@@ -933,7 +868,7 @@ function ExampleChips({
 function DidYouKnowCard({ tip }: { tip: string }) {
   return (
     <View style={styles.didYouKnowCard}>
-      <Text style={styles.sectionTitle}>DID YOU KNOW?</Text>
+      <Text style={styles.sectionTitle}>{t('sections.didYouKnow')}</Text>
       <Text style={styles.didYouKnowText}>{tip}</Text>
     </View>
   );
@@ -950,7 +885,7 @@ function RecentChecksList({
   if (items.length === 0) return null;
   return (
     <View style={styles.recentChecksCard}>
-      <Text style={styles.sectionTitle}>RECENT CHECKS</Text>
+      <Text style={styles.sectionTitle}>{t('sections.recentChecks')}</Text>
       {items.map((entry, i) => {
         const color = overallColor(entry.overall);
         const tintBg = overallTintBg(entry.overall);
@@ -991,14 +926,15 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
   const [aiLookupError, setAiLookupError] = useState<string | null>(null);
   const [infoOpen, setInfoOpen] = useState<string | null>(null);
   const [recentChecks, setRecentChecks] = useState<RecentCheck[]>([]);
-  const [loadingStage, setLoadingStage] = useState<string>('Reading the article…');
+  const [loadingStage, setLoadingStage] = useState<string>(t('check.loading.reading'));
   const persistedJobIdsRef = useRef<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView | null>(null);
 
   // Daily-rotating content (recomputed once per mount — stable per UTC day).
   const dayIdx = dailyIndex();
-  const heroStat = HERO_STATS[dayIdx];
-  const dyKnowTip = DID_YOU_KNOW_TIPS[dayIdx];
+  const heroStat = heroStatsFromI18n()[dayIdx];
+  const dyKnowTip = didKnowTipsFromI18n()[dayIdx];
+  const [languageOpen, setLanguageOpen] = useState(false);
 
   function openInfo(name: string): void {
     setInfoOpen(name);
@@ -1013,13 +949,13 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
   useEffect(() => {
     const isWorking = state.kind === 'submitting' || state.kind === 'polling';
     if (!isWorking) return;
-    setLoadingStage('Reading the article…');
+    setLoadingStage(t('check.loading.reading'));
     const startedAt = Date.now();
     const interval = setInterval(() => {
       const elapsed = Date.now() - startedAt;
-      if (elapsed < 1500) setLoadingStage('Reading the article…');
-      else if (elapsed < 3000) setLoadingStage('Scoring the article…');
-      else setLoadingStage('Almost done…');
+      if (elapsed < 1500) setLoadingStage(t('check.loading.reading'));
+      else if (elapsed < 3000) setLoadingStage(t('check.loading.scoring'));
+      else setLoadingStage(t('check.loading.almostDone'));
     }, 300);
     return () => clearInterval(interval);
   }, [state.kind]);
@@ -1080,7 +1016,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
       setState({ kind: 'polling', jobId, job: result.value });
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
-    setState({ kind: 'error', message: 'Timed out waiting for the result.' });
+    setState({ kind: 'error', message: t('errors.timedOut') });
   }
 
   async function pollDeep(jobId: string): Promise<void> {
@@ -1174,10 +1110,13 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
   async function onShareResult(job: JobResult): Promise<void> {
     if (job.overall === undefined || !job.bucket) return;
     const articleUrl = url;
-    const title = job.article?.title ?? 'Article';
-    const message =
-      `${title} — scored ${job.overall}/100 (${bucketLabel(job.bucket)}) on Sift. ` +
-      `Check it yourself: ${articleUrl}`;
+    const title = job.article?.title ?? t('sections.article');
+    const message = t('share.template', {
+      title,
+      score: job.overall,
+      bucket: bucketLabel(job.bucket),
+      url: articleUrl
+    });
     try {
       await Share.share({ message, url: articleUrl });
     } catch {
@@ -1196,40 +1135,51 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
       <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         <View style={styles.headerRow}>
           <View style={{ flexShrink: 1 }}>
-            <Text style={styles.title}>Sift</Text>
-            <Text style={styles.subtitle}>Paste an article URL.</Text>
+            <Text style={styles.title}>{t('brand')}</Text>
+            <Text style={styles.subtitle}>{t('header.subtitle')}</Text>
           </View>
           <View style={styles.headerLinks}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="How this works"
+              accessibilityLabel={t('header.how')}
               onPress={onOpenMethodology}
               style={({ pressed }) => [styles.headerLinkButton, pressed && styles.pressed]}
             >
-              <Text style={styles.headerLinkText}>How</Text>
+              <Text style={styles.headerLinkText}>{t('header.how')}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Limitations"
+              accessibilityLabel={t('header.limits')}
               onPress={onOpenLimitations}
               style={({ pressed }) => [styles.headerLinkButton, pressed && styles.pressed]}
             >
-              <Text style={styles.headerLinkText}>Limits</Text>
+              <Text style={styles.headerLinkText}>{t('header.limits')}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Media literacy tips"
+              accessibilityLabel={t('header.tips')}
               onPress={onOpenMediaLiteracy}
               style={({ pressed }) => [styles.headerLinkButton, pressed && styles.pressed]}
             >
-              <Text style={styles.headerLinkText}>Tips</Text>
+              <Text style={styles.headerLinkText}>{t('header.tips')}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('header.language')}
+              onPress={() => setLanguageOpen(true)}
+              style={({ pressed }) => [styles.headerLinkButton, pressed && styles.pressed]}
+            >
+              {/* The gear icon doubles as the language picker entry point.
+                  We deliberately don't ship a separate settings surface in
+                  v1.4 — language is currently the only user-adjustable knob. */}
+              <Text style={styles.headerLinkText}>⚙︎</Text>
             </Pressable>
           </View>
         </View>
 
         <TextInput
           style={styles.input}
-          placeholder="https://example.com/article"
+          placeholder={t('check.placeholder')}
           placeholderTextColor={COLORS.textDim}
           autoCapitalize="none"
           autoCorrect={false}
@@ -1241,7 +1191,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Check article credibility"
+          accessibilityLabel={t('check.check')}
           style={({ pressed }) => [
             styles.primaryButton,
             pressed && styles.pressed,
@@ -1250,28 +1200,28 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
           disabled={isWorking}
           onPress={onSubmit}
         >
-          <Text style={styles.primaryButtonText}>Check</Text>
+          <Text style={styles.primaryButtonText}>{t('check.check')}</Text>
         </Pressable>
 
         {state.kind === 'idle' && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Paste URL from clipboard"
+            accessibilityLabel={t('check.paste')}
             onPress={onPasteFromClipboard}
             style={({ pressed }) => [styles.pasteButton, pressed && styles.pressed]}
           >
-            <Text style={styles.pasteButtonText}>📋 Paste from clipboard</Text>
+            <Text style={styles.pasteButtonText}>📋 {t('check.paste')}</Text>
           </Pressable>
         )}
 
         {state.kind === 'result' && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Start a new check"
+            accessibilityLabel={t('check.newCheck')}
             onPress={onReset}
             style={({ pressed }) => [styles.newCheckButton, pressed && styles.pressed]}
           >
-            <Text style={styles.newCheckButtonText}>✕ New check</Text>
+            <Text style={styles.newCheckButtonText}>✕ {t('check.newCheck')}</Text>
           </Pressable>
         )}
 
@@ -1282,20 +1232,18 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
               <ExampleChips onPickExample={onPickExample} />
               <RecentChecksList items={recentChecks} onPick={onPickRecent} />
               <View style={styles.howCard}>
-                <Text style={styles.sectionTitle}>HOW IT WORKS</Text>
+                <Text style={styles.sectionTitle}>{t('sections.howItWorks')}</Text>
                 <View style={styles.howStep}>
                   <Text style={styles.howNumber}>1.</Text>
-                  <Text style={styles.howText}>Paste any article URL above.</Text>
+                  <Text style={styles.howText}>{t('how.step1')}</Text>
                 </View>
                 <View style={styles.howStep}>
                   <Text style={styles.howNumber}>2.</Text>
-                  <Text style={styles.howText}>We score it 0-100 for credibility.</Text>
+                  <Text style={styles.howText}>{t('how.step2')}</Text>
                 </View>
                 <View style={styles.howStep}>
                   <Text style={styles.howNumber}>3.</Text>
-                  <Text style={styles.howText}>
-                    Tap "Deep Analysis" for fact-check evidence + a Skeptic / Advocate debate.
-                  </Text>
+                  <Text style={styles.howText}>{t('how.step3')}</Text>
                 </View>
               </View>
               <DidYouKnowCard tip={dyKnowTip} />
@@ -1318,7 +1266,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
               )}
               {polling?.article?.title && (
                 <View style={styles.card}>
-                  <SectionTitleWithInfo title="ARTICLE" onPressInfo={() => openInfo('ARTICLE')} />
+                  <SectionTitleWithInfo title={t('sections.article')} onPressInfo={() => openInfo('ARTICLE')} />
                   <Text style={styles.value}>{polling.article.title}</Text>
                   {polling.article.excerpt && (
                     <Text style={styles.articleExcerpt} numberOfLines={3}>
@@ -1344,7 +1292,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
 
               {completeJob.article?.title && (
                 <View style={styles.card}>
-                  <SectionTitleWithInfo title="ARTICLE" onPressInfo={() => openInfo('ARTICLE')} />
+                  <SectionTitleWithInfo title={t('sections.article')} onPressInfo={() => openInfo('ARTICLE')} />
                   <Text style={styles.value}>{completeJob.article.title}</Text>
                   {completeJob.article.excerpt && (
                     <Text style={styles.articleExcerpt} numberOfLines={3}>
@@ -1371,10 +1319,10 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
               {completeJob.counterArgument && (
                 <View style={styles.counterBox}>
                   <View style={styles.sectionTitleRow}>
-                    <Text style={styles.counterTitle}>DEVIL'S ADVOCATE</Text>
+                    <Text style={styles.counterTitle}>{t('sections.devilsAdvocate')}</Text>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="More info about DEVIL'S ADVOCATE"
+                      accessibilityLabel={t('sections.devilsAdvocate')}
                       onPress={() => openInfo("DEVIL'S ADVOCATE")}
                       hitSlop={8}
                       style={({ pressed }) => [styles.infoIcon, pressed && styles.pressed]}
@@ -1384,7 +1332,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
                   </View>
                   <Text style={styles.counterText}>{completeJob.counterArgument}</Text>
                   <Text style={styles.counterFootnote}>
-                    The strongest reason this rating could be wrong. Media-literacy tool.
+                    {t('counter.footnote')}
                   </Text>
                 </View>
               )}
@@ -1394,41 +1342,44 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
               {completeJob.overall !== undefined && completeJob.bucket && (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Share this result"
+                  accessibilityLabel={t('share.button')}
                   onPress={() => onShareResult(completeJob)}
                   style={({ pressed }) => [styles.shareButton, pressed && styles.pressed]}
                 >
-                  <Text style={styles.shareButtonText}>Share result</Text>
+                  <Text style={styles.shareButtonText}>{t('share.button')}</Text>
                 </Pressable>
               )}
 
               {completeJob.article?.title && (
                 <View style={styles.lateralCard}>
-                  <Text style={styles.lateralLabel}>READ LATERALLY</Text>
+                  <Text style={styles.lateralLabel}>{t('sections.readLaterally')}</Text>
                   <Text style={styles.lateralCopy}>
-                    Don't trust one source alone. See what other publishers are saying:
+                    {t('lateral.copy')}
                   </Text>
                   <Pressable
                     accessibilityRole="link"
-                    accessibilityLabel="See coverage on Google News"
+                    accessibilityLabel={t('lateral.googleNews')}
                     onPress={() => {
                       const q = encodeURIComponent(completeJob.article?.title ?? '');
                       Linking.openURL('https://news.google.com/search?q=' + q).catch(() => {});
                     }}
                     style={({ pressed }) => [styles.lateralButton, pressed && styles.pressed]}
                   >
-                    <Text style={styles.lateralButtonText}>See coverage on Google News</Text>
+                    <Text style={styles.lateralButtonText}>{t('lateral.googleNews')}</Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="link"
-                    accessibilityLabel="Wikipedia entry"
+                    accessibilityLabel={t('lateral.wikipedia')}
                     onPress={() => {
                       const q = encodeURIComponent(completeJob.article?.title ?? '');
-                      Linking.openURL('https://en.wikipedia.org/wiki/Special:Search?search=' + q).catch(() => {});
+                      // Route Wikipedia searches to zh.wikipedia.org when the
+                      // UI is in Chinese so the linked-out experience matches.
+                      const host = currentLocale() === 'zh-Hans' ? 'zh.wikipedia.org' : 'en.wikipedia.org';
+                      Linking.openURL(`https://${host}/wiki/Special:Search?search=` + q).catch(() => {});
                     }}
                     style={({ pressed }) => [styles.lateralButton, pressed && styles.pressed]}
                   >
-                    <Text style={styles.lateralButtonText}>Wikipedia entry</Text>
+                    <Text style={styles.lateralButtonText}>{t('lateral.wikipedia')}</Text>
                   </Pressable>
                 </View>
               )}
@@ -1438,15 +1389,14 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
                 <View style={styles.deepCtaWrap}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Run Deep Analysis"
+                    accessibilityLabel={t('deep.runButton')}
                     style={({ pressed }) => [styles.deepButton, pressed && styles.pressed]}
                     onPress={onStartDeep}
                   >
-                    <Text style={styles.deepButtonText}>Run Deep Analysis</Text>
+                    <Text style={styles.deepButtonText}>{t('deep.runButton')}</Text>
                   </Pressable>
                   <Text style={styles.deepHint}>
-                    Costs ~3-5× a normal check. Spawns a Skeptic + Advocate + Judge debate.
-                    Takes 10-20s.
+                    {t('deep.runHint')}
                   </Text>
                 </View>
               )}
@@ -1455,21 +1405,21 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
                 <View style={styles.card}>
                   <View style={styles.inline}>
                     <ActivityIndicator color={COLORS.deepTeal} />
-                    <Text style={styles.muted}>Running Deep Analysis…</Text>
+                    <Text style={styles.muted}>{t('check.loading.runningDeep')}</Text>
                   </View>
                 </View>
               )}
 
               {completeJob.deepStatus === 'failed' && completeJob.deepError && (
                 <View style={styles.card}>
-                  <Text style={styles.errorTitle}>Deep Analysis failed</Text>
+                  <Text style={styles.errorTitle}>{t('deep.failedTitle')}</Text>
                   <Text style={styles.errorMessage}>{completeJob.deepError.message}</Text>
                   <Pressable
                     accessibilityRole="button"
                     onPress={onStartDeep}
                     style={({ pressed }) => [styles.retryLink, pressed && styles.pressed]}
                   >
-                    <Text style={styles.link}>Retry</Text>
+                    <Text style={styles.link}>{t('deep.retry')}</Text>
                   </Pressable>
                 </View>
               )}
@@ -1479,7 +1429,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
               )}
 
               <Text style={styles.disclaimer}>
-                AI-generated. May contain errors. Publisher tier from cited sources.
+                {t('disclaimer')}
               </Text>
 
               <Pressable
@@ -1487,7 +1437,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
                 onPress={onReset}
                 style={({ pressed }) => [styles.resetLink, pressed && styles.pressed]}
               >
-                <Text style={styles.resetText}>Check another URL</Text>
+                <Text style={styles.resetText}>{t('check.checkAnotherUrl')}</Text>
               </Pressable>
             </View>
           )}
@@ -1496,7 +1446,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
             <View style={styles.stack}>
               {failedJob.publisher && <PublisherDetailBlock publisher={failedJob.publisher} />}
               <View style={styles.card}>
-                <Text style={styles.errorTitle}>Couldn't analyze this URL</Text>
+                <Text style={styles.errorTitle}>{t('errors.couldNotAnalyze')}</Text>
                 <Text style={styles.errorMessage}>
                   {friendlyErrorMessage(failedJob.error.message, url)}
                 </Text>
@@ -1505,7 +1455,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
                   onPress={onReset}
                   style={({ pressed }) => [styles.resetLink, pressed && styles.pressed]}
                 >
-                  <Text style={styles.resetText}>Try another URL</Text>
+                  <Text style={styles.resetText}>{t('check.tryAnotherUrl')}</Text>
                 </Pressable>
               </View>
               <ExampleChips
@@ -1513,7 +1463,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
                   onReset();
                   setUrl(u);
                 }}
-                title="TRY ONE OF THESE INSTEAD"
+                title={t('sections.tryOneOfTheseInstead')}
               />
             </View>
           )}
@@ -1521,14 +1471,14 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
           {state.kind === 'error' && (
             <View style={styles.stack}>
               <View style={styles.card}>
-                <Text style={styles.errorTitle}>Error</Text>
+                <Text style={styles.errorTitle}>{t('errors.error')}</Text>
                 <Text style={styles.errorMessage}>{friendlyErrorMessage(state.message, url)}</Text>
                 <Pressable
                   accessibilityRole="button"
                   onPress={onReset}
                   style={({ pressed }) => [styles.resetLink, pressed && styles.pressed]}
                 >
-                  <Text style={styles.resetText}>Try again</Text>
+                  <Text style={styles.resetText}>{t('check.tryAgain')}</Text>
                 </Pressable>
               </View>
               <ExampleChips
@@ -1536,7 +1486,7 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
                   onReset();
                   setUrl(u);
                 }}
-                title="TRY ONE OF THESE INSTEAD"
+                title={t('sections.tryOneOfTheseInstead')}
               />
             </View>
           )}
@@ -1544,11 +1494,85 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
       </ScrollView>
       <InfoModal
         visible={infoOpen !== null}
-        title={infoOpen ?? ''}
-        copy={infoOpen ? TOOLTIPS[infoOpen] ?? null : null}
+        title={infoOpen ? tooltipSectionTitle(infoOpen) : ''}
+        copy={infoOpen ? getTooltip(infoOpen) : null}
         onClose={() => setInfoOpen(null)}
       />
+      <LanguageModal
+        visible={languageOpen}
+        onClose={() => setLanguageOpen(false)}
+      />
     </SafeAreaView>
+  );
+}
+
+// ---- Language modal -------------------------------------------------------
+//
+// A tiny two-option picker triggered by the gear button in the header. It
+// applies the chosen locale immediately and closes; the manual choice is
+// persisted (expo-secure-store) inside setLocale so it survives relaunches.
+function LanguageModal({
+  visible,
+  onClose
+}: {
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const active = currentLocale();
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalCard} onPress={() => {}}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t('language.modalTitle')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('language.close')}
+              onPress={onClose}
+              style={({ pressed }) => [styles.modalClose, pressed && styles.pressed]}
+              hitSlop={10}
+            >
+              <Text style={styles.modalCloseText}>✕</Text>
+            </Pressable>
+          </View>
+          {(['en', 'zh-Hans'] as SupportedLocale[]).map((code) => {
+            const label = code === 'en' ? t('language.english') : t('language.chinese');
+            const isActive = active === code;
+            return (
+              <Pressable
+                key={code}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: isActive }}
+                onPress={() => {
+                  setLocale(code).finally(onClose);
+                }}
+                style={({ pressed }) => [
+                  styles.languageOption,
+                  isActive && styles.languageOptionActive,
+                  pressed && styles.pressed
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.languageOptionText,
+                    isActive && styles.languageOptionTextActive
+                  ]}
+                >
+                  {label}
+                </Text>
+                {isActive && <Text style={styles.languageOptionCheck}>✓</Text>}
+              </Pressable>
+            );
+          })}
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -2337,6 +2361,37 @@ const styles = StyleSheet.create({
     color: COLORS.deepTeal,
     fontSize: 13,
     fontWeight: '600'
+  },
+
+  // ---- v1.4: Language picker options ---------------------------------------
+  languageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    backgroundColor: COLORS.white
+  },
+  languageOptionActive: {
+    borderColor: COLORS.deepTeal,
+    backgroundColor: COLORS.sageLight
+  },
+  languageOptionText: {
+    fontSize: 15,
+    color: COLORS.text,
+    fontWeight: '600'
+  },
+  languageOptionTextActive: {
+    color: COLORS.deepTeal
+  },
+  languageOptionCheck: {
+    fontSize: 16,
+    color: COLORS.deepTeal,
+    fontWeight: '700'
   },
 
   // ---- v1.2: Share button --------------------------------------------------

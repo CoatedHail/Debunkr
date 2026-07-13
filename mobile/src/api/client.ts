@@ -5,6 +5,7 @@ import type {
   PublisherResearch
 } from '../types/api';
 import { API_BASE_URL } from '../config';
+import { currentLocale } from '../lib/i18n';
 
 export type ApiResult<T> =
   | { ok: true; value: T }
@@ -27,7 +28,11 @@ export async function submitCheck(
     res = await fetch(`${API_BASE_URL}/api/check`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ url, deviceId })
+      // v1.4: send the active i18n locale so the backend can route Wikipedia
+      // entity lookups to zh.wikipedia.org first for Chinese users. Unknown
+      // locale values are a no-op server-side, so we forward whatever we
+      // have without special-casing here.
+      body: JSON.stringify({ url, deviceId, locale: currentLocale() })
     });
   } catch (e) {
     return {
