@@ -41,7 +41,7 @@ let client: Anthropic | null = hasRealLlm()
   ? new Anthropic({ apiKey: env.anthropicApiKey })
   : null;
 let extractorOpts: { skipSsrfCheck?: boolean } = {};
-let runFactCheckFn: ((articleText: string) => Promise<FactCheckRunResult>) | undefined;
+let runFactCheckFn: ((articleText: string, locale?: string) => Promise<FactCheckRunResult>) | undefined;
 let researchPublisherFn: (domain: string) => Promise<PublisherResearchResult> = async (domain) => {
   if (client) {
     return defaultResearchPublisher(domain, { client, model: env.anthropicModel });
@@ -50,6 +50,11 @@ let researchPublisherFn: (domain: string) => Promise<PublisherResearchResult> = 
 };
 
 const articleTextByJob = new Map<string, string>();
+// Locale hint captured from POST /api/check body and reused when the deep
+// pipeline eventually runs. Chinese-locale hits route Wikipedia lookups to
+// zh.wikipedia.org first (with English fallback). Any non-Chinese value is a
+// no-op today, so we don't need to validate it beyond "is a string".
+const articleLocaleByJob = new Map<string, string>();
 
 // Simple in-memory cache keyed by canonical domain. 24h TTL.
 // Lives at module scope so repeated checks of the same unknown publisher
@@ -111,7 +116,7 @@ export function setTestDeps(deps: {
   costTracker?: CostTracker;
   cache?: Cache;
   skipSsrfCheck?: boolean;
-  runFactCheckFn?: ((articleText: string) => Promise<FactCheckRunResult>) | null;
+  runFactCheckFn?: ((articleText: string, locale?: string) => Promise<FactCheckRunResult>) | null;
   researchPublisherFn?: ((domain: string) => Promise<PublisherResearchResult>) | null;
 }): void {
   if (deps.store) store = deps.store;
@@ -133,6 +138,7 @@ export function setTestDeps(deps: {
     });
   }
   articleTextByJob.clear();
+  articleLocaleByJob.clear();
   clearPublisherResearchCache();
 }
 
@@ -159,12 +165,13 @@ async function runAnalysisWithCost(jobId: string, deviceId: string, ip: string, 
   return analyzeContentStub(articleText);
 }
 
-async function runDeepWithCost(jobId: string, deviceId: string, ip: string, articleText: string): Promise<DeepResult> {
+async function runDeepWithCost(jobId: string, deviceId: string, ip: string, articleText: string, locale: string | undefined): Promise<DeepResult> {
   if (client) {
     const result = await runDeepAnalysis(articleText, {
       client,
       model: env.anthropicModel,
-      ...(runFactCheckFn ? { runFactCheckFn } : {})
+      ...(runFactCheckFn ? { runFactCheckFn } : {}),
+      ...(locale ? { locale } : {})
     });
     if (result.usage.inputTokens + result.usage.outputTokens > 0) {
       await costTracker.record({
@@ -208,7 +215,8 @@ function lookupPublisher(url: string): PublisherLookup {
   return lookup(domain);
 }
 
-async function runPipeline(jobId: string, url: string, deviceId: string, ip: string): Promise<void> {
+async function runPipeline(jobId: string, url: string, deviceId: string, ip: string, locale: string | undefined): Promise<void> {
+  if (locale) articleLocaleByJob.set(jobId, locale);
   const publisher = lookupPublisher(url);
 
   const extraction = await extractArticle(url, extractorOpts);
@@ -323,7 +331,8 @@ async function runDeepPipeline(jobId: string, deviceId: string, ip: string): Pro
 
   store.update(jobId, { deepStatus: 'pending' });
 
-  const result = await runDeepWithCost(jobId, deviceId, ip, text);
+  const locale = articleLocaleByJob.get(jobId);
+  const result = await runDeepWithCost(jobId, deviceId, ip, text, locale);
   if (!result.ok) {
     store.update(jobId, { deepStatus: 'failed', deepError: result.error });
     return;
@@ -397,8 +406,12 @@ checkRoutes.post('/check', async (c) => {
     return c.json(err, 503);
   }
 
+  const locale = typeof body.locale === 'string' && body.locale.length > 0 && body.locale.length < 32
+    ? body.locale
+    : undefined;
+
   const job = store.create({ url: body.url });
-  runPipeline(job.jobId, body.url, body.deviceId, ip).catch(() => {
+  runPipeline(job.jobId, body.url, body.deviceId, ip, locale).catch(() => {
     store.update(job.jobId, {
       status: 'failed',
       error: { code: 'INTERNAL_ERROR', message: 'Unexpected error during analysis.', retryable: true }

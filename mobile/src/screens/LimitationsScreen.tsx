@@ -5,35 +5,42 @@ import {
   StyleSheet,
   Text
 } from 'react-native';
+import { t } from '../lib/i18n';
 
 export interface LimitationsScreenProps {
   onBack: () => void;
 }
+
+const BULLET_KEYS = [
+  'limitations.b1',
+  'limitations.b2',
+  'limitations.b3',
+  'limitations.b4',
+  'limitations.b5',
+  'limitations.b6',
+  'limitations.b7',
+  'limitations.b8',
+  'limitations.b9',
+  'limitations.b10',
+  'limitations.b11',
+  'limitations.b12',
+  'limitations.b13'
+];
 
 export function LimitationsScreen({ onBack }: LimitationsScreenProps) {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
         <Pressable onPress={onBack} style={styles.back}>
-          <Text style={styles.backText}>← Back</Text>
+          <Text style={styles.backText}>{t('limitations.back')}</Text>
         </Pressable>
 
-        <Text style={styles.title}>Limitations</Text>
-        <Text style={styles.subtitle}>What Sift does — and what it can't.</Text>
+        <Text style={styles.title}>{t('limitations.title')}</Text>
+        <Text style={styles.subtitle}>{t('limitations.subtitle')}</Text>
 
-        <Text style={styles.bullet}>• AI analysis. Output may contain errors. Treat as a starting point, not a verdict.</Text>
-        <Text style={styles.bullet}>• Paywalled or JavaScript-only articles often can not be read by the backend. Rating strength drops or the check fails.</Text>
-        <Text style={styles.bullet}>• Breaking news. A single article in isolation is hard to judge; cross-reference matters.</Text>
-        <Text style={styles.bullet}>• Satire. We do not yet detect satire — sites like The Onion may be rated as low credibility.</Text>
-        <Text style={styles.bullet}>• Opinion vs reporting. The score evaluates writing quality, not whether you should agree with the opinion.</Text>
-        <Text style={styles.bullet}>• Publisher reputation is curated (~32 publishers from Wikipedia's Perennial Sources list + IFCN-signatory fact-checkers). Coverage will expand over time.</Text>
-        <Text style={styles.bullet}>• Tone & balance is an LLM estimate, not a real bias dataset (AllSides license still pending). Treat it with caution.</Text>
-        <Text style={styles.bullet}>• URLs you check are temporarily cached server-side (max 24 hours) so repeat checks of the same article respond faster. We don't sell or share them. See the Privacy Policy for the full data flow.</Text>
-        <Text style={styles.bullet}>• Fact-checking is English-only. Non-English articles are checked weakly or not at all.</Text>
-        <Text style={styles.bullet}>• Breaking news (less than 24 hours old) often has no fact-check or Tier-1 coverage yet. We will say "no fact-checks found" rather than guess.</Text>
-        <Text style={styles.bullet}>• Fabricated entities slip through if they are not yet on Wikipedia — and some real people aren't on Wikipedia either, so this is not perfect.</Text>
-        <Text style={styles.bullet}>• Our Tier-1 publisher list is hand-picked and skews US/UK English-language. Quality sources in other regions may not be reflected.</Text>
-        <Text style={styles.bullet}>• The aggregator LLM can hallucinate citations. We cap citation count at 5 and require URLs come from the actual search results, but errors are still possible.</Text>
+        {BULLET_KEYS.map((k) => (
+          <Text key={k} style={styles.bullet}>• {t(k)}</Text>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );

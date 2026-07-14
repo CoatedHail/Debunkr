@@ -19,7 +19,13 @@ export interface DeepOptions {
   client: Anthropic;
   model: string;
   /** DI hook for M8 fact-check pipeline; defaults to real runFactCheck. */
-  runFactCheckFn?: (articleText: string) => Promise<FactCheckRunResult>;
+  runFactCheckFn?: (articleText: string, locale?: string) => Promise<FactCheckRunResult>;
+  /**
+   * Optional locale hint (e.g. "zh-Hans") plumbed to the fact-check pipeline
+   * so Wikipedia entity checks route to zh.wikipedia.org first for Chinese
+   * articles. When omitted, everything stays English-first.
+   */
+  locale?: string;
 }
 
 export type DeepResult =
@@ -123,9 +129,17 @@ export async function runDeepAnalysis(
   // Run Skeptic + Advocate + fact-check in parallel — Judge waits for all three.
   // Use allSettled so a transient skeptic/advocate failure produces a clean
   // structured error rather than a rejection that takes the fact-checker down.
+  //
+  // We forward the locale to the fact-check pipeline so Wikipedia entity
+  // lookups route to zh.wikipedia.org first for Chinese articles. Callers that
+  // pass a default runFactCheckFn (the production path) get locale-aware
+  // behaviour; DI hooks that ignore the argument (older tests) keep working.
   const factCheckPromise: Promise<FactCheckRunResult | null> = (async () => {
     try {
-      return await runFactCheckFn(articleText);
+      // Preserve the one-arg call shape for tests that assert exact args.
+      return await (opts.locale
+        ? runFactCheckFn(articleText, opts.locale)
+        : runFactCheckFn(articleText));
     } catch {
       return null;
     }

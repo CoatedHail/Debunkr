@@ -1,0 +1,327 @@
+{
+  "brand": "Sift",
+  "header": {
+    "subtitle": "粘贴文章链接。",
+    "how": "原理",
+    "limits": "局限",
+    "tips": "技巧",
+    "language": "语言"
+  },
+  "language": {
+    "modalTitle": "语言",
+    "english": "English",
+    "chinese": "简体中文",
+    "close": "关闭"
+  },
+  "check": {
+    "placeholder": "https://example.com/article",
+    "check": "查证",
+    "paste": "从剪贴板粘贴",
+    "newCheck": "新查证",
+    "tryAgain": "重试",
+    "tryAnotherUrl": "换个链接试试",
+    "checkAnotherUrl": "查证其他链接",
+    "loading": {
+      "reading": "正在读取文章…",
+      "scoring": "正在评分…",
+      "almostDone": "即将完成…",
+      "runningDeep": "正在进行深度分析…"
+    },
+    "reset": "重试"
+  },
+  "sections": {
+    "overallCredibility": "综合可信度",
+    "ratingStrength": "评级可信度",
+    "devilsAdvocate": "反方视角",
+    "article": "文章",
+    "publisher": "发布方",
+    "breakdown": "评分细项",
+    "deepAnalysis": "深度分析",
+    "factCheck": "事实核查",
+    "readLaterally": "横向阅读",
+    "recentChecks": "最近查证",
+    "howItWorks": "使用方法",
+    "tryAnExample": "试试示例",
+    "tryOneOfTheseInstead": "换成这些试试",
+    "didYouKnow": "你知道吗?",
+    "signalsUsed": "使用的信号",
+    "citations": "引用来源",
+    "whatTheWebSays": "网络上的评价",
+    "judgesVerdict": "裁判员结论",
+    "skeptic": "怀疑方",
+    "advocate": "支持方",
+    "evidence": "证据"
+  },
+  "buckets": {
+    "highly-credible": "高度可信",
+    "mostly-credible": "基本可信",
+    "mixed": "参差不齐",
+    "questionable": "存疑",
+    "low": "可信度低"
+  },
+  "tiers": {
+    "high": "普遍可靠",
+    "medium": "口碑不一",
+    "mixed": "口碑不一",
+    "low": "普遍不可靠",
+    "unknown": "不在收录名单内"
+  },
+  "bias": {
+    "strongLeft": "明显偏左",
+    "mildLeft": "略微偏左",
+    "center": "中立 / 客观",
+    "mildRight": "略微偏右",
+    "strongRight": "明显偏右"
+  },
+  "sourceLabel": {
+    "wikipedia": "维基百科",
+    "ifcn": "IFCN"
+  },
+  "breakdown": {
+    "publisherReputation": "发布方声誉",
+    "articleQuality": "文章质量",
+    "toneAndBalance": "语气与平衡度",
+    "fromWikipedia": "依据维基百科编者共识",
+    "fromCheapSignals": "仅依据文章本身信号(发布方未收录)",
+    "toneNote": "由 AI 估算,单独看可信度较低。",
+    "signal": {
+      "https": "HTTPS 加密",
+      "byline": "署名齐全",
+      "siteName": "已识别发布方",
+      "long": "文章长度超过 2000 字符"
+    },
+    "unknownDomain": "未知域名"
+  },
+  "confidence": {
+    "high": "高",
+    "medium": "中",
+    "low": "低",
+    "highLabel": "评级可信度: 高",
+    "mediumLabel": "评级可信度: 中",
+    "lowLabel": "评级可信度: 低"
+  },
+  "publisher": {
+    "unknownCaveat": "常见原因:地方媒体、小众博客、非英语网站或新兴刊物。上面的分数只依据文章本身的信号。",
+    "lookupButton": "查询此发布方",
+    "lookupInFlight": "查询中…",
+    "lookupHint": "调用 Claude 上网搜索该发布方的口碑。每个域名仅调用一次。",
+    "researchFootnote": "由 AI 综合独立报道生成,缓存 24 小时。",
+    "sentimentPositive": "大多正面",
+    "sentimentMixed": "褒贬不一",
+    "sentimentNegative": "存在隐忧",
+    "sentimentUnclear": "信息不足"
+  },
+  "counter": {
+    "footnote": "本评级最有可能错在哪里 —— 用来训练媒体素养。"
+  },
+  "deep": {
+    "runButton": "运行深度分析",
+    "runHint": "耗费约为普通查证的 3-5 倍,会启动怀疑方、支持方、裁判员三方辩论,用时 10-20 秒。",
+    "failedTitle": "深度分析失败",
+    "retry": "重试"
+  },
+  "feedback": {
+    "prompt": "这个评级是否合理?",
+    "helpful": "有帮助",
+    "notHelpful": "没帮助",
+    "commentPlaceholder": "原因是?(选填)",
+    "sending": "正在发送…",
+    "send": "提交反馈",
+    "thanks": "谢谢 —— 你的反馈会帮助我们改进。"
+  },
+  "share": {
+    "button": "分享结果",
+    "template": "%{title} —— 在 Sift 上评分为 %{score}/100(%{bucket})。自己看看:%{url}"
+  },
+  "lateral": {
+    "copy": "不要只信一家。看看其他媒体怎么说:",
+    "googleNews": "在 Google 新闻中查看",
+    "wikipedia": "查看维基百科词条"
+  },
+  "example": {
+    "bbc": "BBC Future",
+    "snopes": "Snopes 事实核查",
+    "wiki": "维基百科",
+    "guardian": "卫报长文",
+    "conversation": "The Conversation"
+  },
+  "how": {
+    "step1": "在上方粘贴任意文章链接。",
+    "step2": "我们会为其打 0-100 的可信度分。",
+    "step3": "点击“深度分析”可查看事实核查证据以及怀疑方 / 支持方辩论。"
+  },
+  "verdicts": {
+    "corroborated": "已被佐证",
+    "contradicted": "已被反驳",
+    "mixed": "结果不一",
+    "uncorroborated": "未找到事实核查",
+    "agrees": "✓ 支持",
+    "contradicts": "✗ 反驳",
+    "context": "· 背景"
+  },
+  "showMore": "展开更多",
+  "showLess": "收起",
+  "showFewer": "收起部分",
+  "showMoreCount": "展开更多 (%{count})",
+  "noCitations": "本次未收集到与这些说法相关的引用。",
+  "disclaimer": "由 AI 生成,可能存在错误。发布方等级来自公开来源。",
+  "errors": {
+    "reuters": "路透社会屏蔽自动抓取并要求订阅。可以改试 BBC 或卫报。",
+    "nytimes": "《纽约时报》需要订阅。可以改试 BBC 或卫报的相似报道。",
+    "wsj": "《华尔街日报》需要订阅。可以改试 The Conversation 的深度分析。",
+    "washingtonpost": "《华盛顿邮报》需要订阅。可以改试 BBC 或卫报。",
+    "bloomberg": "彭博社需要订阅。可以改试 BBC 或美联社的财经报道。",
+    "ft": "《金融时报》需要订阅。可以改试 BBC 或卫报的相似报道。",
+    "economist": "《经济学人》需要订阅。可以改试 The Conversation 或 BBC。",
+    "cbs": "CBS 新闻只在 JavaScript 内渲染,我们读不到内容。可以改试 BBC 或维基百科。",
+    "nbc": "NBC 新闻只在 JavaScript 内渲染。可以改试 BBC 或维基百科。",
+    "abc": "ABC 新闻只在 JavaScript 内渲染。可以改试 BBC 或维基百科。",
+    "cnn": "CNN 经常屏蔽自动抓取。可以改试 BBC 或美联社。",
+    "fox": "福克斯新闻经常屏蔽自动抓取。可以改试 BBC 或美联社。",
+    "medium": "Medium 付费墙后的文章无法读取。请换一篇公开的文章。",
+    "substack": "付费的 Substack 文章无法读取。公开文章可以 —— 换个链接试试。",
+    "ssrf": "该链接指向内部网络。Sift 只查证公开文章。",
+    "auth": "该网站需要登录或屏蔽自动抓取。请换一篇公开的文章。",
+    "notFound": "找不到该链接。请检查拼写。",
+    "timeout": "该网站响应太慢。请稍后重试。",
+    "server": "该网站目前有故障。请稍后再试。",
+    "generic": "无法读取这篇文章。请换一个链接。",
+    "couldNotAnalyze": "无法分析这个链接",
+    "error": "出错了",
+    "timedOut": "等待结果超时。"
+  },
+  "methodology": {
+    "back": "← 返回",
+    "title": "工作原理",
+    "subtitle": "评分背后的信号,用大白话讲清楚。",
+    "overallH": "综合评分",
+    "overallP": "综合分 = 0.45 × 发布方声誉 + 0.45 × 文章内容质量 + 0.10 × 偏向调整。偏向调整是对极端政治立场(左右都算)的小幅扣分;偏向本身并不代表“错”,但极端立场往往伴随选择性报道。",
+    "publisherH": "发布方声誉",
+    "publisherP": "来自我们精选的名单(约 50 家发布方,取自维基百科“长期来源”编者共识,并新增一份中文媒体清单),再加上 IFCN 认证事实核查机构。若发布方不在名单内,我们回退到文章层面的信号(HTTPS、有无署名、文章长度、能否识别发布方名)。回退分数被限定在 30–60 之间,评级可信度会被标为“低”。",
+    "qualityH": "文章质量 + 语气与平衡度 + 反方视角",
+    "qualityP": "这三项均来自 Claude(Anthropic 的 AI 模型)的一次调用。模型读完文章后返回:0–100 的质量分、-5 到 +5 的语气与平衡度评估(仅由 AI 估算,单独看可信度较低),以及“该评级最可能错在哪里”的最强论据。反方视角始终展示,因为它能训练媒体素养。",
+    "deepH": "深度分析(可选)",
+    "deepP": "点击“运行深度分析”后,会依次触发三次 Claude 调用:怀疑方寻找不该信任这篇文章的一切理由;支持方寻找该信任的一切理由;裁判员权衡两份报告并给出最终结论。每个环节都会引用文章中的具体证据。耗费约为普通查证的 3-5 倍,用时约 10-20 秒。",
+    "deepP2": "已知局限:V1 版本三个环节使用同一模型家族(Claude),它们共享底层偏见。未来版本会引入其他模型家族以获得真正的偏差降低。",
+    "factCheckH": "事实核查流程(仅限深度分析)",
+    "factCheckP1": "深度分析时还会跑一条五步事实核查流水线:",
+    "factCheckP2": "1. 由 LLM 从文章中提取最多 3 条可验证的事实性说法(数字、具名事件、引文 —— 不含观点)。\n2. 调用 Google Fact Check Tools API,聚合 PolitiFact、Snopes、法新社事实核查、路透事实核查等数十家 IFCN 成员的核查结果。\n3. 通过 Brave 搜索开放网络,只保留来自约 30 家精选一线媒体(路透、美联、BBC、《纽约时报》等)的结果,其余全部丢弃。\n4. 用维基百科核对具名实体(人物、组织、事件)以识别虚构名称。中文界面时会先查中文维基,查不到再回退英文维基。\n5. 第二次 LLM 调用把所有证据综合为逐条说法的结论(已佐证 / 已反驳 / 未找到事实核查 / 结果不一),并对文章的综合分做上下最多 ±30 分的调整。",
+    "ratingH": "评级可信度",
+    "ratingP": "• 高 —— 发布方在两个及以上数据集中命中,且文章能被完整读取。\n• 中 —— 只命中 1 个数据集,或数据集命中但文章无法读取。\n• 低 —— 发布方未收录(仅靠廉价信号回退)。\n由确定性规则计算,而非 AI 判断,所以在多次调用中保持一致。",
+    "todoH": "我们暂时还做不到的事",
+    "todoP": "还没有真正的偏向数据集(目前用 AI 估算),也没有域名年龄查询。一线媒体白名单主要偏向英美/香港英文媒体,并新增一份中文媒体清单服务华人用户。扩展到其他语言与地区的覆盖是下一步重点。",
+    "feedbackH": "反馈",
+    "feedbackP": "每份结果都带“有帮助 / 没帮助”按钮。点“没帮助”会弹出简短的评论框。你的反馈会推动评分与解释的持续改进。",
+    "legalH": "法律",
+    "legalPrivacy": "隐私政策",
+    "legalTerms": "服务条款",
+    "legalNote": "两者都会在 Safari 中打开,公开托管以便无需发版即可更新。"
+  },
+  "limitations": {
+    "back": "← 返回",
+    "title": "局限",
+    "subtitle": "Sift 能做什么 —— 以及做不到什么。",
+    "b1": "AI 分析。输出可能有误。请把它当作起点而非最终结论。",
+    "b2": "付费墙或仅 JavaScript 渲染的文章后端常常无法读取,评级可信度会下降甚至查证失败。",
+    "b3": "突发新闻。单篇文章孤立地看很难评判,交叉验证很重要。",
+    "b4": "讽刺文。我们暂时无法识别讽刺 —— 类似《洋葱新闻》的站点可能被评为可信度低。",
+    "b5": "观点 vs 报道。分数评估的是写作质量,而不是你是否应该同意其观点。",
+    "b6": "发布方声誉为人工精选(约 50 家,取自维基百科“长期来源”名单、一份中文媒体清单以及 IFCN 认证事实核查机构),覆盖会逐步扩大。",
+    "b7": "语气与平衡度是 AI 估算,并非真正的偏向数据集(AllSides 授权仍在洽谈)。请谨慎参考。",
+    "b8": "你查证过的链接会在服务端临时缓存(最长 24 小时)以加速重复查证。我们不会出售或分享。完整数据流请见隐私政策。",
+    "b9": "事实核查在英文最完善。中文事实核查 API 相对有限 —— 我们会尽量呈现法新社/路透社的中文核查内容。",
+    "b10": "突发新闻(24 小时以内)通常还没有事实核查或一线媒体覆盖。我们会说“未找到事实核查”,而不是靠猜。",
+    "b11": "尚未被维基百科收录的虚构实体可能漏网 —— 而部分真实人物也不在维基百科上,所以并非完美。",
+    "b12": "我们的一线媒体清单主要覆盖英美/香港英文媒体以及一份中文媒体清单,其他地区的优质来源可能未被反映。",
+    "b13": "综合环节的 LLM 可能编造引用。我们把引用上限设为 5 并强制其 URL 出自实际搜索结果,但仍可能出错。"
+  },
+  "mediaLit": {
+    "back": "← 返回",
+    "title": "媒体素养",
+    "subtitle": "识别虚假信息的技能 —— 不只是看我们的评分。",
+    "siftHeader": "SIFT 四步法",
+    "siftIntro": "任何一篇文章你都可以在一分钟内跑一遍这四步。养成习惯,大多数虚假信息在你转发之前就能被拦下。",
+    "siftFootnote": "SIFT 是最有实证支持的媒体素养框架,由 Mike Caulfield 提出,在新闻学院中被广泛采用。",
+    "tacticsHeader": "常见操纵手法",
+    "tacticsIntro": "只要认识了这些,你会开始处处看到它们。",
+    "disclaimer": "Sift 是媒体素养练习工具 —— 它不能取代你自己的判断。即使我们评分错了,上述技能仍然有效。",
+    "sift": {
+      "stopTitle": "Stop 停一下",
+      "stopBody": "当一则新闻让你情绪激烈时,先停一停。强烈情绪是转发虚假信息最常见的触发点。查证之前,先别参与讨论。",
+      "investigateTitle": "Investigate 调查来源",
+      "investigateBody": "打开新标签页,搜索“[发布方名] 维基百科”或“[发布方名] 可信度”。不要只看该站自己的“关于我们”页面。",
+      "findTitle": "Find 找更多报道",
+      "findBody": "在多个来源里搜索同一件事。如果一件重大新闻只有一家媒体在报,那是危险信号;如果可靠来源相互矛盾,以可靠来源为准。",
+      "traceTitle": "Trace 追溯原始",
+      "traceBody": "大多数新闻都是关于某样东西 —— 一份研究、一次声明、一场事件。找到一手来源。引文可能被截取,数据可能被歪曲。尽量往源头看。"
+    },
+    "tactics": {
+      "loadedTitle": "带立场的措辞",
+      "loadedBody": "偷偷夹带观点的用词。“重磅曝光”与“调查发现”就完全不同。同一件事读两家媒体,对比一下动词。",
+      "falseEqTitle": "错误对等",
+      "falseEqBody": "把一场大丑闻和一次小错误说成“双方都有问题”。留意文章有没有淡化关键差异。",
+      "cherryTitle": "挑选式统计",
+      "cherryBody": "只挑对结论有利的那一个数据,忽略其余。可以问一句:这是唯一可用的数据吗?长期趋势是什么样?",
+      "anonTitle": "匿名信源",
+      "anonBody": "有时确有必要(如吹哨人),很多时候是红灯(缺乏问责)。最可靠的文章通常引用有名有姓、可以核实的人。",
+      "imageTitle": "被断章取义的图片和视频",
+      "imageBody": "真实照片配上错误场景,真实引文被截去了限定条件。做反向图片搜索,并核对时间戳。",
+      "headlineTitle": "标题 ≠ 正文",
+      "headlineBody": "很多人只看标题就转发。标题往往夸大了正文实际证据。请读完全文,特别是中段。"
+    }
+  },
+  "tooltips": {
+    "OVERALL CREDIBILITY": {
+      "whatThisChecks": "综合评分:45% 发布方声誉、45% AI 判断的文章质量、10% 语气与平衡度。",
+      "askYourself": "分数与你的直觉一致吗?可靠来源却分低,或不知名来源却分高,都值得多看一眼。"
+    },
+    "RATING STRENGTH": {
+      "whatThisChecks": "我们做出评级时掌握的信息量。“高”= 我们既认识发布方,又完整读到了文章;“低”= 只能靠文章层面的信号回退。",
+      "askYourself": "评级可信度低时,把分数当猜测而非结论,自己再去找一手来源。"
+    },
+    "ARTICLE": {
+      "whatThisChecks": "从页面提取的标题、作者以及简短摘录。",
+      "askYourself": "标题与文章实际内容是否一致?是否有有名有姓、可以核实的作者?"
+    },
+    "BREAKDOWN": {
+      "whatThisChecks": "构成综合分的三项信号,分别打分。",
+      "askYourself": "如果某项明显低于其他两项,那正是你该聚焦怀疑的地方。"
+    },
+    "PUBLISHER": {
+      "whatThisChecks": "谁发布了这篇文章,以及独立评估(维基百科“长期来源”、IFCN)对其声誉的判断。",
+      "askYourself": "可靠媒体也会出错,不知名媒体也可能是对的。声誉只是一项信号,不是真相本身。"
+    },
+    "DEVIL'S ADVOCATE": {
+      "whatThisChecks": "由 AI 生成、说明该评级为什么可能错的论据。我们始终展示这一项。",
+      "askYourself": "请在下结论前先看这一段。看到最强的反方观点,比赞同评分更能训练媒体素养。"
+    },
+    "DEEP ANALYSIS": {
+      "whatThisChecks": "依次运行的三次 AI 调用(怀疑方、支持方、裁判员),再加上对接 Google Fact Check Tools 和维基百科的外部事实核查流水线。",
+      "askYourself": "先看怀疑方与支持方,再看裁判员。留意二者分歧最大的地方。"
+    },
+    "modalWhatThisChecks": "此项检查什么",
+    "modalAskYourself": "你应该自问什么"
+  },
+  "heroStats": {
+    "s0Quote": "82% 的学生分不清赞助内容与新闻报道。",
+    "s0Source": "斯坦福历史教育小组, 2016",
+    "s1Quote": "在 Twitter 上,虚假新闻传播速度比真实新闻快 6 倍。",
+    "s1Source": "MIT Sloan, 2018(《科学》)",
+    "s2Quote": "一次 3 小时的“公民在线推理”训练能让事实核查能力提升 50%。",
+    "s2Source": "斯坦福大学, 2022",
+    "s3Quote": "只有 30% 的美国人信任新闻媒体,但 86% 在数字设备上看新闻。",
+    "s3Source": "皮尤研究中心, 2024",
+    "s4Quote": "横向阅读能把被误导的概率降低约一半。",
+    "s4Source": "斯坦福互联网观察",
+    "s5Quote": "虚假信息在 Facebook 上获得的互动量是真实新闻的 6 倍。",
+    "s5Source": "纽约大学, 2021"
+  },
+  "didKnowTips": {
+    "t0": "当一则新闻让你情绪强烈时,请在转发前停一停。强烈情绪是虚假信息扩散的头号推手。",
+    "t1": "横向阅读(打开新标签验证)比认真研读单一来源更快、也更准。",
+    "t2": "匿名信源有时是必要的(如吹哨人),但也常是危险信号。最可靠的文章会引用有名有姓、可以核实的人。",
+    "t3": "标题可能会误导,即使正文本身没错。转发之前先读完全文。",
+    "t4": "把真照片配上错误场景是最常见的视觉误导。反向图片搜索只要 10 秒。",
+    "t5": "如果一件重大新闻只有一家媒体在报,那是危险信号。主流新闻通常会被多家一线媒体同时覆盖。"
+  }
+}

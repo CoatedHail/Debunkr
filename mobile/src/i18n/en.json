@@ -1,0 +1,327 @@
+{
+  "brand": "Sift",
+  "header": {
+    "subtitle": "Paste an article URL.",
+    "how": "How",
+    "limits": "Limits",
+    "tips": "Tips",
+    "language": "Language"
+  },
+  "language": {
+    "modalTitle": "Language",
+    "english": "English",
+    "chinese": "简体中文",
+    "close": "Close"
+  },
+  "check": {
+    "placeholder": "https://example.com/article",
+    "check": "Check",
+    "paste": "Paste from clipboard",
+    "newCheck": "New check",
+    "tryAgain": "Try again",
+    "tryAnotherUrl": "Try another URL",
+    "checkAnotherUrl": "Check another URL",
+    "loading": {
+      "reading": "Reading the article…",
+      "scoring": "Scoring the article…",
+      "almostDone": "Almost done…",
+      "runningDeep": "Running Deep Analysis…"
+    },
+    "reset": "Try again"
+  },
+  "sections": {
+    "overallCredibility": "OVERALL CREDIBILITY",
+    "ratingStrength": "RATING STRENGTH",
+    "devilsAdvocate": "DEVIL'S ADVOCATE",
+    "article": "ARTICLE",
+    "publisher": "PUBLISHER",
+    "breakdown": "BREAKDOWN",
+    "deepAnalysis": "DEEP ANALYSIS",
+    "factCheck": "FACT-CHECK",
+    "readLaterally": "READ LATERALLY",
+    "recentChecks": "RECENT CHECKS",
+    "howItWorks": "HOW IT WORKS",
+    "tryAnExample": "TRY AN EXAMPLE",
+    "tryOneOfTheseInstead": "TRY ONE OF THESE INSTEAD",
+    "didYouKnow": "DID YOU KNOW?",
+    "signalsUsed": "SIGNALS USED",
+    "citations": "CITATIONS",
+    "whatTheWebSays": "WHAT THE WEB SAYS",
+    "judgesVerdict": "JUDGE'S VERDICT",
+    "skeptic": "SKEPTIC",
+    "advocate": "ADVOCATE",
+    "evidence": "Evidence"
+  },
+  "buckets": {
+    "highly-credible": "Highly credible",
+    "mostly-credible": "Mostly credible",
+    "mixed": "Mixed",
+    "questionable": "Questionable",
+    "low": "Low credibility"
+  },
+  "tiers": {
+    "high": "Generally reliable",
+    "medium": "Mixed reputation",
+    "mixed": "Mixed reputation",
+    "low": "Generally unreliable",
+    "unknown": "Not in our curated list"
+  },
+  "bias": {
+    "strongLeft": "Strong left lean",
+    "mildLeft": "Mild left lean",
+    "center": "Centered / neutral",
+    "mildRight": "Mild right lean",
+    "strongRight": "Strong right lean"
+  },
+  "sourceLabel": {
+    "wikipedia": "Wikipedia",
+    "ifcn": "IFCN"
+  },
+  "breakdown": {
+    "publisherReputation": "Publisher reputation",
+    "articleQuality": "Article quality",
+    "toneAndBalance": "Tone & balance",
+    "fromWikipedia": "from curated Wikipedia consensus",
+    "fromCheapSignals": "from article-only signals (publisher unknown)",
+    "toneNote": "LLM-estimated, low rating strength on its own.",
+    "signal": {
+      "https": "HTTPS",
+      "byline": "Byline present",
+      "siteName": "Publisher name extracted",
+      "long": "Article > 2000 chars"
+    },
+    "unknownDomain": "Unknown domain"
+  },
+  "confidence": {
+    "high": "HIGH",
+    "medium": "MEDIUM",
+    "low": "LOW",
+    "highLabel": "High rating strength",
+    "mediumLabel": "Medium rating strength",
+    "lowLabel": "Low rating strength"
+  },
+  "publisher": {
+    "unknownCaveat": "Common reasons: local newspaper, niche blog, foreign-language site, or new publication. The score above relies on article-level signals only.",
+    "lookupButton": "Look up this publisher",
+    "lookupInFlight": "Looking up…",
+    "lookupHint": "Asks Claude to search the web for the publisher's reputation. One call per domain.",
+    "researchFootnote": "AI-summarized from independent reporting. Cached for 24 hours.",
+    "sentimentPositive": "Mostly positive",
+    "sentimentMixed": "Mixed signals",
+    "sentimentNegative": "Concerning",
+    "sentimentUnclear": "Not enough info"
+  },
+  "counter": {
+    "footnote": "The strongest reason this rating could be wrong. Media-literacy tool."
+  },
+  "deep": {
+    "runButton": "Run Deep Analysis",
+    "runHint": "Costs ~3-5× a normal check. Spawns a Skeptic + Advocate + Judge debate. Takes 10-20s.",
+    "failedTitle": "Deep Analysis failed",
+    "retry": "Retry"
+  },
+  "feedback": {
+    "prompt": "Was this rating fair?",
+    "helpful": "Helpful",
+    "notHelpful": "Not helpful",
+    "commentPlaceholder": "Why? (optional)",
+    "sending": "Sending…",
+    "send": "Send feedback",
+    "thanks": "Thanks — your feedback helps improve the system."
+  },
+  "share": {
+    "button": "Share result",
+    "template": "%{title} — scored %{score}/100 (%{bucket}) on Sift. Check it yourself: %{url}"
+  },
+  "lateral": {
+    "copy": "Don't trust one source alone. See what other publishers are saying:",
+    "googleNews": "See coverage on Google News",
+    "wikipedia": "Wikipedia entry"
+  },
+  "example": {
+    "bbc": "BBC Future",
+    "snopes": "Snopes fact-check",
+    "wiki": "Wikipedia",
+    "guardian": "Guardian long read",
+    "conversation": "The Conversation"
+  },
+  "how": {
+    "step1": "Paste any article URL above.",
+    "step2": "We score it 0-100 for credibility.",
+    "step3": "Tap \"Deep Analysis\" for fact-check evidence + a Skeptic / Advocate debate."
+  },
+  "verdicts": {
+    "corroborated": "Corroborated",
+    "contradicted": "Contradicted",
+    "mixed": "Mixed",
+    "uncorroborated": "No fact-checks found",
+    "agrees": "✓ Agrees",
+    "contradicts": "✗ Contradicts",
+    "context": "· Context"
+  },
+  "showMore": "Show more",
+  "showLess": "Show less",
+  "showFewer": "Show fewer",
+  "showMoreCount": "Show more (%{count})",
+  "noCitations": "No citations were collected for these claims.",
+  "disclaimer": "AI-generated. May contain errors. Publisher tier from cited sources.",
+  "errors": {
+    "reuters": "Reuters blocks automated readers and requires a subscription. Try a BBC or Guardian article instead.",
+    "nytimes": "New York Times requires a subscription. Try BBC or Guardian for similar coverage.",
+    "wsj": "Wall Street Journal requires a subscription. Try The Conversation for similar in-depth analysis.",
+    "washingtonpost": "Washington Post requires a subscription. Try BBC or Guardian instead.",
+    "bloomberg": "Bloomberg requires a subscription. Try BBC or AP for similar financial reporting.",
+    "ft": "Financial Times requires a subscription. Try BBC or Guardian for similar coverage.",
+    "economist": "The Economist requires a subscription. Try The Conversation or BBC for similar depth.",
+    "cbs": "CBS News uses JavaScript-only rendering that we can't read. Try BBC or Wikipedia.",
+    "nbc": "NBC News uses JavaScript-only rendering. Try BBC or Wikipedia instead.",
+    "abc": "ABC News uses JavaScript-only rendering. Try BBC or Wikipedia instead.",
+    "cnn": "CNN often blocks automated readers. Try BBC or AP for similar coverage.",
+    "fox": "Fox News often blocks automated readers. Try BBC or AP for similar coverage.",
+    "medium": "Medium articles behind their paywall can't be read. Try a public article instead.",
+    "substack": "Paywalled Substack posts can't be read. Public posts work — try a different URL.",
+    "ssrf": "That URL points to a private network. Sift only checks public articles.",
+    "auth": "Site needs login or blocks automated fetching. Try an open article.",
+    "notFound": "URL not found. Check for typos.",
+    "timeout": "The site took too long to respond. Try again.",
+    "server": "The site is having problems right now. Try again later.",
+    "generic": "Couldn't read this article. Try a different URL.",
+    "couldNotAnalyze": "Couldn't analyze this URL",
+    "error": "Error",
+    "timedOut": "Timed out waiting for the result."
+  },
+  "methodology": {
+    "back": "← Back",
+    "title": "How this works",
+    "subtitle": "The signals behind your score, in plain English.",
+    "overallH": "The overall score",
+    "overallP": "Overall = 0.45 × Publisher reputation + 0.45 × Article content quality + 0.10 × Bias adjustment. The bias adjustment is a small penalty for extreme political lean (either direction); bias itself isn't \"wrong\" but extreme lean correlates with selective reporting.",
+    "publisherH": "Publisher reputation",
+    "publisherP": "Pulled from our curated list (~50 publishers, hand-picked from Wikipedia's Perennial Sources editor consensus plus a Chinese-language publisher set) plus the IFCN signatory list of certified fact-checkers. If we don't recognize the publisher, we fall back to article-level signals (HTTPS, byline present, article length, extracted publisher name). Fallback scores are bounded 30–60 and the rating strength indicator drops to \"low\".",
+    "qualityH": "Article quality + tone & balance + devil's advocate",
+    "qualityP": "All three come from a single call to Claude (an AI model from Anthropic). The model reads the article and returns: a 0–100 quality score, a –5 to +5 tone & balance estimate (LLM-estimated, low rating strength on its own), and the strongest argument that the rating could be wrong. The devil's advocate is always shown because it trains media literacy.",
+    "deepH": "Deep Analysis (opt-in)",
+    "deepP": "The \"Run Deep Analysis\" button on a result spawns three more Claude calls in sequence: a SKEPTIC searching for every reason to distrust the article, an ADVOCATE searching for every reason to trust it, and a JUDGE weighing both reports and returning a final verdict. Each agent cites specific evidence from the article. Costs ~3-5× a normal check and takes ~10-20s.",
+    "deepP2": "KNOWN LIMITATION: in V1 all three agents are the same model family (Claude), so they share underlying biases. A future update will mix model families for genuine bias reduction.",
+    "factCheckH": "How we fact-check claims (Deep Analysis only)",
+    "factCheckP1": "During Deep Analysis we also run a five-stage fact-check pipeline:",
+    "factCheckP2": "1. An LLM extracts up to 3 verifiable factual claims from the article (numbers, named events, quotes — not opinions).\n2. We query the Google Fact Check Tools API, which aggregates fact-checks from PolitiFact, Snopes, AFP Fact Check, Reuters Fact Check, and dozens of other IFCN-signatory outlets.\n3. We search the open web via Brave Search and keep only results from a hand-curated list of ~30 Tier-1 publishers (Reuters, AP, BBC, NYT, etc.) — everything else is discarded.\n4. Named entities (people, organizations, events) are checked against Wikipedia to catch fabricated names. Chinese-locale checks hit zh.wikipedia.org first, then fall back to English.\n5. A second LLM call synthesizes all the evidence into a per-claim verdict (corroborated / contradicted / no fact-checks found / mixed) and adjusts the article's overall score by up to ±30 points.",
+    "ratingH": "Rating strength",
+    "ratingP": "• High — publisher in 2+ datasets AND article successfully read.\n• Medium — 1 dataset, OR datasets known but article couldn't be read.\n• Low — unknown publisher (cheap-signals fallback).\nComputed by deterministic rules, not LLM judgment, so it's consistent across calls.",
+    "todoH": "What we don't do yet",
+    "todoP": "No real bias dataset (we use an LLM estimate today), no domain-age lookup. Our Tier-1 publisher allowlist is hand-curated and skews US/UK, with a Chinese-language set added for diaspora users. Coverage in other languages and regions is the next focus area.",
+    "feedbackH": "Feedback",
+    "feedbackP": "Every result has Helpful / Not helpful buttons. Not helpful opens a short comment box. Your feedback shapes future improvements to the scoring and explanations.",
+    "legalH": "Legal",
+    "legalPrivacy": "Privacy Policy",
+    "legalTerms": "Terms of Service",
+    "legalNote": "Both open in Safari. Hosted publicly so they can be updated without an app release."
+  },
+  "limitations": {
+    "back": "← Back",
+    "title": "Limitations",
+    "subtitle": "What Sift does — and what it can't.",
+    "b1": "AI analysis. Output may contain errors. Treat as a starting point, not a verdict.",
+    "b2": "Paywalled or JavaScript-only articles often can not be read by the backend. Rating strength drops or the check fails.",
+    "b3": "Breaking news. A single article in isolation is hard to judge; cross-reference matters.",
+    "b4": "Satire. We do not yet detect satire — sites like The Onion may be rated as low credibility.",
+    "b5": "Opinion vs reporting. The score evaluates writing quality, not whether you should agree with the opinion.",
+    "b6": "Publisher reputation is curated (~50 publishers from Wikipedia's Perennial Sources list, a Chinese-language publisher set, and IFCN-signatory fact-checkers). Coverage will expand over time.",
+    "b7": "Tone & balance is an LLM estimate, not a real bias dataset (AllSides license still pending). Treat it with caution.",
+    "b8": "URLs you check are temporarily cached server-side (max 24 hours) so repeat checks of the same article respond faster. We don't sell or share them. See the Privacy Policy for the full data flow.",
+    "b9": "Fact-check coverage is strongest in English. Chinese-language fact-check APIs are limited — we surface AFP / Reuters Chinese-language pieces where available.",
+    "b10": "Breaking news (less than 24 hours old) often has no fact-check or Tier-1 coverage yet. We will say \"no fact-checks found\" rather than guess.",
+    "b11": "Fabricated entities slip through if they are not yet on Wikipedia — and some real people aren't on Wikipedia either, so this is not perfect.",
+    "b12": "Our Tier-1 publisher list is hand-picked and skews US/UK/HK English-language plus a Chinese-language set. Quality sources in other regions may not be reflected.",
+    "b13": "The aggregator LLM can hallucinate citations. We cap citation count at 5 and require URLs come from the actual search results, but errors are still possible."
+  },
+  "mediaLit": {
+    "back": "← Back",
+    "title": "Media literacy",
+    "subtitle": "Skills for spotting bad info — not just our rating.",
+    "siftHeader": "THE SIFT METHOD",
+    "siftIntro": "Four moves you can run on any article in under a minute. Build the habit and you'll catch most misinformation before it sticks.",
+    "siftFootnote": "SIFT is the most-evidenced media-literacy framework, developed by Mike Caulfield. Used widely in journalism schools.",
+    "tacticsHeader": "COMMON MANIPULATION TACTICS",
+    "tacticsIntro": "Once you know these, you'll see them everywhere.",
+    "disclaimer": "Sift is a tool for media literacy practice — it doesn't replace your own judgment. The skills above work even when our score is wrong.",
+    "sift": {
+      "stopTitle": "Stop",
+      "stopBody": "When a story makes you feel strong emotion, pause. Strong emotion is the most common trigger for sharing misinformation. Don't engage until you've checked.",
+      "investigateTitle": "Investigate the source",
+      "investigateBody": "Open a new tab. Search '[publisher name] Wikipedia' or '[publisher name] reliability'. Don't rely only on the site's About page.",
+      "findTitle": "Find better coverage",
+      "findBody": "Search the same story across multiple sources. If only one publisher is reporting a major event, that's a red flag. If reliable sources contradict it, trust them.",
+      "traceTitle": "Trace the original",
+      "traceBody": "Most news articles are about something — a study, a statement, an event. Find the primary source. Quotes can be cropped. Statistics can be misrepresented. Go upstream when you can."
+    },
+    "tactics": {
+      "loadedTitle": "Loaded language",
+      "loadedBody": "Words that smuggle in opinion. 'Bombshell report' vs 'investigation finds'. Read the same story in two outlets and compare the verbs.",
+      "falseEqTitle": "False equivalence",
+      "falseEqBody": "Treating a major scandal and a minor mistake as 'both sides did something wrong'. Look for where the article downplays a significant difference.",
+      "cherryTitle": "Cherry-picked statistics",
+      "cherryBody": "Picking the one statistic that supports the argument while ignoring the rest. Ask: was this the only data point available? What was the trend over time?",
+      "anonTitle": "Anonymous sources",
+      "anonBody": "Sometimes necessary (whistleblowers). Often a red flag (no accountability). The most reliable articles cite named people you can verify.",
+      "imageTitle": "Image and video out of context",
+      "imageBody": "A real photo from a different event. A real quote cropped to remove qualifiers. Reverse-image-search and check timestamps.",
+      "headlineTitle": "Headline ≠ article",
+      "headlineBody": "Many readers share based on headline alone. The headline often overpromises what the article actually proves. Read the body, especially the middle."
+    }
+  },
+  "tooltips": {
+    "OVERALL CREDIBILITY": {
+      "whatThisChecks": "A combined score: 45% publisher reputation, 45% AI-judged article quality, 10% tone & balance.",
+      "askYourself": "Does the score match your gut read? A weak score from a strong source — or vice versa — is worth a closer look."
+    },
+    "RATING STRENGTH": {
+      "whatThisChecks": "How much data we had to make this rating. High = we knew the publisher and read the article cleanly. Low = we had to fall back to article-level signals.",
+      "askYourself": "When rating strength is low, treat the score as a guess, not a verdict. Look for primary sources yourself."
+    },
+    "ARTICLE": {
+      "whatThisChecks": "The title, author, and a short excerpt extracted from the page.",
+      "askYourself": "Does the headline match what the article actually says? Is there a named author with verifiable credentials?"
+    },
+    "BREAKDOWN": {
+      "whatThisChecks": "The three signals that produced the overall score, scored independently.",
+      "askYourself": "If one signal is much lower than the others, that's where to focus your skepticism."
+    },
+    "PUBLISHER": {
+      "whatThisChecks": "Who published this and how reputable they are by independent assessment (Wikipedia Perennial Sources, IFCN).",
+      "askYourself": "Even reputable publishers can be wrong. Even unknown publishers can be correct. Reputation is one signal, not the truth."
+    },
+    "DEVIL'S ADVOCATE": {
+      "whatThisChecks": "An AI-generated argument for why the rating could be wrong. We always show this.",
+      "askYourself": "Read this BEFORE deciding. The strongest version of the opposite view trains your media literacy more than agreeing with the score."
+    },
+    "DEEP ANALYSIS": {
+      "whatThisChecks": "Three sequential AI calls (Skeptic, Advocate, Judge) plus an external fact-check pipeline against Google Fact Check Tools and Wikipedia.",
+      "askYourself": "Read the Skeptic and Advocate sections before the Judge. Watch where they disagree."
+    },
+    "modalWhatThisChecks": "What this checks",
+    "modalAskYourself": "What you should ask yourself"
+  },
+  "heroStats": {
+    "s0Quote": "82% of students can't tell a sponsored article from a news story.",
+    "s0Source": "Stanford History Education Group, 2016",
+    "s1Quote": "On Twitter, false stories spread 6× faster than true ones.",
+    "s1Source": "MIT Sloan, 2018 (Science)",
+    "s2Quote": "A 3-hour 'Civic Online Reasoning' intervention improved fact-checking skills by 50%.",
+    "s2Source": "Stanford, 2022",
+    "s3Quote": "Only 30% of Americans trust news media, but 86% read news on digital devices.",
+    "s3Source": "Pew Research, 2024",
+    "s4Quote": "Lateral reading reduces susceptibility to misinformation by about 2×.",
+    "s4Source": "Stanford Internet Observatory",
+    "s5Quote": "Disinformation generates 6× more Facebook engagement than factual news.",
+    "s5Source": "NYU, 2021"
+  },
+  "didKnowTips": {
+    "t0": "When a story makes you feel strong emotion, pause before sharing. Strong emotion is the #1 driver of misinformation spread.",
+    "t1": "Lateral reading — opening new tabs to verify — is faster AND more accurate than carefully evaluating one source.",
+    "t2": "Anonymous sources are sometimes necessary (whistleblowers), often a red flag. The most reliable articles cite named, verifiable people.",
+    "t3": "A headline can be misleading even when the article is accurate. Always read past the headline before sharing.",
+    "t4": "Real photos used in fake contexts is the most common form of visual misinformation. A reverse image search takes 10 seconds.",
+    "t5": "If only one publisher is reporting a major event, that's a red flag. Mainstream stories get covered by multiple Tier-1 sources."
+  }
+}

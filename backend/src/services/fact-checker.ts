@@ -124,8 +124,20 @@ function dedupeSearchHits(arrays: SearchHit[][]): SearchHit[] {
 
 export async function runFactCheck(
   articleText: string,
-  options: FactCheckOptions = {}
+  localeOrOptions?: string | FactCheckOptions,
+  optionsArg: FactCheckOptions = {}
 ): Promise<FactCheckRunResult> {
+  // Overload-ish: original signature was (text, options). v1.4 adds a locale
+  // hint. To stay backwards-compatible with tests that pass an options bag
+  // as the second argument, sniff the shape at runtime.
+  let locale: string | undefined;
+  let options: FactCheckOptions;
+  if (typeof localeOrOptions === 'string') {
+    locale = localeOrOptions;
+    options = optionsArg;
+  } else {
+    options = localeOrOptions ?? {};
+  }
   const extractClaimsFn = options.extractClaimsFn ?? defaultExtractClaims;
   const searchFactChecksFn =
     options.searchFactChecksFn ?? defaultSearchFactChecks;
@@ -172,10 +184,15 @@ export async function runFactCheck(
   const webPromises = queries.map((q) =>
     searchWebFn(q).catch((): SearchHit[] => [])
   );
+  // Only forward the second arg when a locale hint is present — keeps the
+  // one-arg default call shape stable for existing tests that assert the
+  // exact argument list on checkEntitiesFn.
   const entityPromise: Promise<EntityCheck[]> =
     entityList.length === 0
       ? Promise.resolve([])
-      : checkEntitiesFn(entityList).catch((): EntityCheck[] => []);
+      : locale
+        ? checkEntitiesFn(entityList, { locale }).catch((): EntityCheck[] => [])
+        : checkEntitiesFn(entityList).catch((): EntityCheck[] => []);
 
   const [factCheckResults, webResults, entityResults] = await Promise.all([
     Promise.allSettled(factCheckPromises),

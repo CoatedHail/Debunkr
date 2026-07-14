@@ -7,6 +7,7 @@ import type {
   EvidenceResult,
   EvidenceVerdict
 } from '../types/api';
+import { t } from '../lib/i18n';
 
 const COLLAPSED_REASONING_MAX = 120;
 const COLLAPSED_CITATION_COUNT = 3;
@@ -39,10 +40,10 @@ function verdictColor(v: EvidenceVerdict): string {
 
 function verdictLabel(v: EvidenceVerdict): string {
   switch (v) {
-    case 'corroborated':   return 'Corroborated';
-    case 'contradicted':   return 'Contradicted';
-    case 'mixed':          return 'Mixed';
-    case 'uncorroborated': return 'No fact-checks found';
+    case 'corroborated':   return t('verdicts.corroborated');
+    case 'contradicted':   return t('verdicts.contradicted');
+    case 'mixed':          return t('verdicts.mixed');
+    case 'uncorroborated': return t('verdicts.uncorroborated');
   }
 }
 
@@ -56,9 +57,9 @@ function confidenceColor(c: Confidence): string {
 
 function confidenceLabel(c: Confidence): string {
   switch (c) {
-    case 'high':   return 'High rating strength';
-    case 'medium': return 'Medium rating strength';
-    case 'low':    return 'Low rating strength';
+    case 'high':   return t('confidence.highLabel');
+    case 'medium': return t('confidence.mediumLabel');
+    case 'low':    return t('confidence.lowLabel');
   }
 }
 
@@ -72,9 +73,9 @@ function supportColor(s: CitationSupport): string {
 
 function supportLabel(s: CitationSupport): string {
   switch (s) {
-    case 'agrees':      return '✓ Agrees';
-    case 'contradicts': return '✗ Contradicts';
-    case 'context':     return '· Context';
+    case 'agrees':      return t('verdicts.agrees');
+    case 'contradicts': return t('verdicts.contradicts');
+    case 'context':     return t('verdicts.context');
   }
 }
 
@@ -124,7 +125,7 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.header}>FACT-CHECK</Text>
+      <Text style={styles.header}>{t('sections.factCheck')}</Text>
 
       <View style={styles.topRow}>
         <View style={[styles.verdictBadge, { backgroundColor: vColor }]}>
@@ -144,14 +145,14 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
         <Text style={styles.reasoning}>{reasoningText}</Text>
         {reasoningTruncated && (
           <Text style={styles.expandHint}>
-            {reasoningExpanded ? 'Show less' : 'Show more'}
+            {reasoningExpanded ? t('showLess') : t('showMore')}
           </Text>
         )}
       </Pressable>
 
-      <Text style={styles.sectionLabel}>CITATIONS</Text>
+      <Text style={styles.sectionLabel}>{t('sections.citations')}</Text>
       {citations.length === 0 ? (
-        <Text style={styles.empty}>No citations were collected for these claims.</Text>
+        <Text style={styles.empty}>{t('noCitations')}</Text>
       ) : (
         <View>
           {visibleCitations.map((c, i) => (
@@ -165,8 +166,8 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
             >
               <Text style={styles.showMoreText}>
                 {allCitations
-                  ? 'Show fewer'
-                  : `Show more (${citations.length - COLLAPSED_CITATION_COUNT})`}
+                  ? t('showFewer')
+                  : t('showMoreCount', { count: citations.length - COLLAPSED_CITATION_COUNT })}
               </Text>
             </Pressable>
           )}
