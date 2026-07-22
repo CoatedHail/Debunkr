@@ -1,4 +1,4 @@
-# Sift — App Store Connect copy
+# Debunkr — App Store Connect copy
 
 All strings ready to paste into App Store Connect. Counts in brackets.
 
@@ -54,9 +54,9 @@ Paste any article URL. Get a 0-100 credibility score with publisher reputation, 
 ## Description (4000 char max)
 
 ```
-Sift rates the credibility of online news articles in seconds.
+Debunkr rates the credibility of online news articles in seconds.
 
-Paste any article URL, tap Check, and Sift returns:
+Paste any article URL, tap Check, and Debunkr returns:
 
 • A 0-100 OVERALL CREDIBILITY score
 • A clear bucket: Highly credible / Mostly credible / Mixed / Questionable / Low
@@ -85,7 +85,7 @@ A RATING STRENGTH indicator tells you when our data is thin so you can weigh the
 
 HONEST LIMITATIONS
 
-Sift is informational, not advice:
+Debunkr is informational, not advice:
 
 • We rate writing quality and publisher reputation, not absolute truth.
 • A well-written fabrication from an unknown site can still score Mixed.
@@ -97,7 +97,7 @@ The Methodology and Limitations screens spell out exactly how everything works a
 
 NO ACCOUNT REQUIRED
 
-Sift doesn't ask for your name, email, or login. We use a random device ID to enforce daily rate limits and to attribute optional feedback to a consistent user without identifying you personally.
+Debunkr doesn't ask for your name, email, or login. We use a random device ID to enforce daily rate limits and to attribute optional feedback to a consistent user without identifying you personally.
 
 FEEDBACK IS THE PRODUCT
 
@@ -105,11 +105,11 @@ Every result has Helpful / Not helpful buttons. Your feedback shapes future impr
 
 LIMITS
 
-To keep costs sustainable and prevent abuse, Sift currently enforces 20 standard checks and 3 Deep Analyses per device per day.
+To keep costs sustainable and prevent abuse, Debunkr currently enforces 20 standard checks and 3 Deep Analyses per device per day.
 
 For more on how the score works, what we collect, and our limitations, see the in-app Methodology, Limitations, and Privacy Policy.
 
-— Sift is in alpha. Ratings are estimates, not verified facts. Always check important claims independently.
+— Debunkr is in alpha. Ratings are estimates, not verified facts. Always check important claims independently.
 ```
 [~3,000 chars / 4,000]
 
@@ -183,7 +183,7 @@ Paste any article URL. Tap Check for a credibility score. Tap Deep Analysis for 
 ## Notes for App Review (for App Store review only)
 
 ```
-Sift is a credibility-rating app for news articles. There is no login required.
+Debunkr is a credibility-rating app for news articles. There is no login required.
 
 How to test:
 1. Open the app.
@@ -248,7 +248,7 @@ Tip: take screenshots inside iOS Simulator (Cmd+S in sim saves to Desktop). The 
 
 | App Store Connect field | Paste |
 |---|---|
-| App Name | Sift |
+| App Name | Debunkr |
 | Subtitle | Rate any article in seconds |
 | Promotional Text | Paste any article URL. Get a 0-100 credibility score with publisher reputation, article quality, and fact-check evidence. Built to make media literacy easier. |
 | Description | (paste the long Description block above) |

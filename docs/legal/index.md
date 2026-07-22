@@ -1,9 +1,9 @@
 ---
 layout: default
-title: Sift Legal
+title: Debunkr Legal
 ---
 
-# Sift — Legal
+# Debunkr — Legal
 
 - [Privacy Policy](./privacy)
 - [Terms of Service](./terms)
