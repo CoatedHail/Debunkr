@@ -1,5 +1,5 @@
 {
-  "brand": "Sift",
+  "brand": "Debunkr",
   "header": {
     "subtitle": "粘贴文章链接。",
     "how": "原理",
@@ -131,7 +131,7 @@
   },
   "share": {
     "button": "分享结果",
-    "template": "%{title} —— 在 Sift 上评分为 %{score}/100(%{bucket})。自己看看:%{url}"
+    "template": "%{title} —— 在 Debunkr 上评分为 %{score}/100(%{bucket})。自己看看:%{url}"
   },
   "lateral": {
     "copy": "不要只信一家。看看其他媒体怎么说:",
@@ -180,7 +180,7 @@
     "fox": "福克斯新闻经常屏蔽自动抓取。可以改试 BBC 或美联社。",
     "medium": "Medium 付费墙后的文章无法读取。请换一篇公开的文章。",
     "substack": "付费的 Substack 文章无法读取。公开文章可以 —— 换个链接试试。",
-    "ssrf": "该链接指向内部网络。Sift 只查证公开文章。",
+    "ssrf": "该链接指向内部网络。Debunkr 只查证公开文章。",
     "auth": "该网站需要登录或屏蔽自动抓取。请换一篇公开的文章。",
     "notFound": "找不到该链接。请检查拼写。",
     "timeout": "该网站响应太慢。请稍后重试。",
@@ -220,7 +220,7 @@
   "limitations": {
     "back": "← 返回",
     "title": "局限",
-    "subtitle": "Sift 能做什么 —— 以及做不到什么。",
+    "subtitle": "Debunkr 能做什么 —— 以及做不到什么。",
     "b1": "AI 分析。输出可能有误。请把它当作起点而非最终结论。",
     "b2": "付费墙或仅 JavaScript 渲染的文章后端常常无法读取,评级可信度会下降甚至查证失败。",
     "b3": "突发新闻。单篇文章孤立地看很难评判,交叉验证很重要。",
@@ -244,7 +244,7 @@
     "siftFootnote": "SIFT 是最有实证支持的媒体素养框架,由 Mike Caulfield 提出,在新闻学院中被广泛采用。",
     "tacticsHeader": "常见操纵手法",
     "tacticsIntro": "只要认识了这些,你会开始处处看到它们。",
-    "disclaimer": "Sift 是媒体素养练习工具 —— 它不能取代你自己的判断。即使我们评分错了,上述技能仍然有效。",
+    "disclaimer": "Debunkr 是媒体素养练习工具 —— 它不能取代你自己的判断。即使我们评分错了,上述技能仍然有效。",
     "sift": {
       "stopTitle": "Stop 停一下",
       "stopBody": "当一则新闻让你情绪激烈时,先停一停。强烈情绪是转发虚假信息最常见的触发点。查证之前,先别参与讨论。",

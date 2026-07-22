@@ -1,5 +1,5 @@
 /**
- * i18n plumbing for Sift v1.4.
+ * i18n plumbing for Debunkr v1.4.
  *
  * On first launch we auto-detect the device locale via expo-localization and
  * pick `zh-Hans` if it's any Chinese variant, otherwise `en`. The user can

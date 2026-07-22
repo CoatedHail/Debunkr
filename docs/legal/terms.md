@@ -3,29 +3,29 @@ layout: default
 title: Terms of Service
 ---
 
-# Sift Terms of Service
+# Debunkr Terms of Service
 
 **Last updated:** June 10, 2026
 **Operator:** Four-Color AI LLC ("we", "us", "our")
 **Contact:** oscarsmily@gmail.com
 
-> **DRAFT.** This document is a starting point for legal review and not a substitute for professional legal advice. Before launching Sift publicly we are obtaining attorney review of these Terms.
+> **DRAFT.** This document is a starting point for legal review and not a substitute for professional legal advice. Before launching Debunkr publicly we are obtaining attorney review of these Terms.
 
 ---
 
 ## 1. Acceptance
 
-By installing or using Sift (the "Service"), you agree to these Terms. If you do not agree, do not use the Service.
+By installing or using Debunkr (the "Service"), you agree to these Terms. If you do not agree, do not use the Service.
 
 ## 2. The Service is informational, not advice
 
-Sift estimates the credibility of news articles using automated AI scoring, hand-curated publisher datasets, and external fact-check APIs. **The ratings, verdicts, and reasoning displayed in Sift are informational only.** They are not professional journalism, legal, medical, financial, political, or fact-checking advice.
+Debunkr estimates the credibility of news articles using automated AI scoring, hand-curated publisher datasets, and external fact-check APIs. **The ratings, verdicts, and reasoning displayed in Debunkr are informational only.** They are not professional journalism, legal, medical, financial, political, or fact-checking advice.
 
-A high score does not mean an article is true. A low score does not mean an article is false. You should not make decisions of consequence (votes, investments, medical choices, etc.) based solely on a Sift rating. Always verify independently.
+A high score does not mean an article is true. A low score does not mean an article is false. You should not make decisions of consequence (votes, investments, medical choices, etc.) based solely on a Debunkr rating. Always verify independently.
 
 ## 3. Eligibility
 
-You must be **at least 17 years old**, or have permission from a parent or legal guardian, to use Sift. The Service is not directed at children under 13. You must comply with all applicable laws in your jurisdiction when using the Service.
+You must be **at least 17 years old**, or have permission from a parent or legal guardian, to use Debunkr. The Service is not directed at children under 13. You must comply with all applicable laws in your jurisdiction when using the Service.
 
 ## 4. What you can submit
 
@@ -54,17 +54,17 @@ Open-source dependencies are governed by their respective licenses.
 
 ## 7. Third-party content
 
-Articles you submit and content returned by third-party APIs (fact-check matches, Wikipedia summaries, etc.) remain the property of their respective owners. Sift displays excerpts solely for informational purposes under fair use principles.
+Articles you submit and content returned by third-party APIs (fact-check matches, Wikipedia summaries, etc.) remain the property of their respective owners. Debunkr displays excerpts solely for informational purposes under fair use principles.
 
 ## 8. AI-generated content
 
-Significant portions of Sift's output are produced by large language models (currently Anthropic's Claude). **These models can produce factually incorrect or misleading output.** They can hallucinate citations or reasoning. We mitigate this with anti-hallucination gates and require citation URLs to come from real search results, but errors are still possible.
+Significant portions of Debunkr's output are produced by large language models (currently Anthropic's Claude). **These models can produce factually incorrect or misleading output.** They can hallucinate citations or reasoning. We mitigate this with anti-hallucination gates and require citation URLs to come from real search results, but errors are still possible.
 
-You acknowledge and accept this risk. Do not rely on Sift output as the sole basis for any consequential decision.
+You acknowledge and accept this risk. Do not rely on Debunkr output as the sole basis for any consequential decision.
 
 ## 9. Costs and rate limits
 
-Sift is currently free to use. We enforce per-device and per-IP daily rate limits to manage cost and prevent abuse:
+Debunkr is currently free to use. We enforce per-device and per-IP daily rate limits to manage cost and prevent abuse:
 
 - 20 standard checks per device per day
 - 3 Deep Analysis checks per device per day
@@ -109,7 +109,7 @@ Any dispute arising out of or related to these Terms or the Service will be reso
 
 ## 17. Disclaimer regarding politics, defamation, and reputation
 
-Sift rates publishers and articles. Ratings are computed automatically and reflect the rating system's design, not the personal opinion of Four-Color AI LLC or its employees.
+Debunkr rates publishers and articles. Ratings are computed automatically and reflect the rating system's design, not the personal opinion of Four-Color AI LLC or its employees.
 
 If you are a publisher or individual mentioned in an article we rated and you believe a rating is defamatory, factually incorrect about your publication, or harmful, please contact us. We will review the rating in good faith. We are not journalists, are not engaged in news reporting, and do not assert factual claims about identified individuals or publications.
 

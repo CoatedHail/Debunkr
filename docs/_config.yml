@@ -1,5 +1,5 @@
 theme: jekyll-theme-cayman
-title: CredCheck
+title: Debunkr
 description: Article credibility checker
 plugins:
   - jekyll-feed

@@ -44,7 +44,7 @@ describe('createDatasetLookup', () => {
 
   // ---- Chinese-language publishers (v1.4) ----
   //
-  // The Chinese diaspora is a real user segment and CredCheck's US-only
+  // The Chinese diaspora is a real user segment and Debunkr's US-only
   // publisher list is a gap. These assertions pin the tiers we shipped so a
   // future edit to the CSV doesn't silently downgrade Caixin or promote
   // Global Times. Wikipedia perennial-source guidance is thin for Chinese

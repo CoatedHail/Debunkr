@@ -1,5 +1,5 @@
 {
-  "brand": "Sift",
+  "brand": "Debunkr",
   "header": {
     "subtitle": "Paste an article URL.",
     "how": "How",
@@ -131,7 +131,7 @@
   },
   "share": {
     "button": "Share result",
-    "template": "%{title} — scored %{score}/100 (%{bucket}) on Sift. Check it yourself: %{url}"
+    "template": "%{title} — scored %{score}/100 (%{bucket}) on Debunkr. Check it yourself: %{url}"
   },
   "lateral": {
     "copy": "Don't trust one source alone. See what other publishers are saying:",
@@ -180,7 +180,7 @@
     "fox": "Fox News often blocks automated readers. Try BBC or AP for similar coverage.",
     "medium": "Medium articles behind their paywall can't be read. Try a public article instead.",
     "substack": "Paywalled Substack posts can't be read. Public posts work — try a different URL.",
-    "ssrf": "That URL points to a private network. Sift only checks public articles.",
+    "ssrf": "That URL points to a private network. Debunkr only checks public articles.",
     "auth": "Site needs login or blocks automated fetching. Try an open article.",
     "notFound": "URL not found. Check for typos.",
     "timeout": "The site took too long to respond. Try again.",
@@ -220,7 +220,7 @@
   "limitations": {
     "back": "← Back",
     "title": "Limitations",
-    "subtitle": "What Sift does — and what it can't.",
+    "subtitle": "What Debunkr does — and what it can't.",
     "b1": "AI analysis. Output may contain errors. Treat as a starting point, not a verdict.",
     "b2": "Paywalled or JavaScript-only articles often can not be read by the backend. Rating strength drops or the check fails.",
     "b3": "Breaking news. A single article in isolation is hard to judge; cross-reference matters.",
@@ -244,7 +244,7 @@
     "siftFootnote": "SIFT is the most-evidenced media-literacy framework, developed by Mike Caulfield. Used widely in journalism schools.",
     "tacticsHeader": "COMMON MANIPULATION TACTICS",
     "tacticsIntro": "Once you know these, you'll see them everywhere.",
-    "disclaimer": "Sift is a tool for media literacy practice — it doesn't replace your own judgment. The skills above work even when our score is wrong.",
+    "disclaimer": "Debunkr is a tool for media literacy practice — it doesn't replace your own judgment. The skills above work even when our score is wrong.",
     "sift": {
       "stopTitle": "Stop",
       "stopBody": "When a story makes you feel strong emotion, pause. Strong emotion is the most common trigger for sharing misinformation. Don't engage until you've checked.",
