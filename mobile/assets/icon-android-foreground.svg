@@ -1,11 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F6CE4C"/>
+      <stop offset="100%" stop-color="#E8A92E"/>
+    </linearGradient>
     <filter id="ds" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0B2C82" flood-opacity="0.30"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.28"/>
     </filter>
   </defs>
   <g transform="translate(512 512) scale(0.85) translate(-512 -512)">
-    <path filter="url(#ds)" fill="#FFFFFF" fill-rule="evenodd"
+    <path filter="url(#ds)" fill="url(#gold)" fill-rule="evenodd"
           d="M316 256 L450 256 A256 256 0 0 1 450 768 L316 768 Z
              M446 386 L450 386 A126 126 0 0 1 450 638 L446 638 Z"/>
   </g>

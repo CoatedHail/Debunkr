@@ -18,7 +18,7 @@
       "package": "com.oscarli.credibilitycheck",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#1A4FD0",
+        "backgroundColor": "#0E1830",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
