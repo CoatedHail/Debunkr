@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <filter id="ds" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0B2C82" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+  <g transform="translate(512 512) scale(0.85) translate(-512 -512)">
+    <path filter="url(#ds)" fill="#FFFFFF" fill-rule="evenodd"
+          d="M316 256 L450 256 A256 256 0 0 1 450 768 L316 768 Z
+             M446 386 L450 386 A126 126 0 0 1 450 638 L446 638 Z"/>
+  </g>
+</svg>
