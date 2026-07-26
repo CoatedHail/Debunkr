@@ -131,6 +131,10 @@
   },
   "share": {
     "button": "分享结果",
+    "linkLabel": "可分享链接",
+    "copy": "复制",
+    "copied": "已复制!",
+    "more": "更多分享方式",
     "template": "%{title} —— 在 Debunkr 上评分为 %{score}/100(%{bucket})。自己看看:%{url}"
   },
   "lateral": {

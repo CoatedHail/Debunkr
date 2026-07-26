@@ -131,6 +131,10 @@
   },
   "share": {
     "button": "Share result",
+    "linkLabel": "Shareable link",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "more": "More sharing options",
     "template": "%{title} — scored %{score}/100 (%{bucket}) on Debunkr. Check it yourself: %{url}"
   },
   "lateral": {
