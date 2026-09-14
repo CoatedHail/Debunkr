@@ -50,7 +50,8 @@
     "judgesVerdict": "JUDGE'S VERDICT",
     "skeptic": "SKEPTIC",
     "advocate": "ADVOCATE",
-    "evidence": "Evidence"
+    "evidence": "Evidence",
+    "credibleIntervalLabel": "95% CI:"
   },
   "buckets": {
     "highly-credible": "Highly credible",
@@ -195,7 +196,7 @@
     "title": "How this works",
     "subtitle": "The signals behind your score, in plain English.",
     "overallH": "The overall score",
-    "overallP": "Overall = 0.45 × Publisher reputation + 0.45 × Article content quality + 0.10 × Bias adjustment. The bias adjustment is a small penalty for extreme political lean (either direction); bias itself isn't \"wrong\" but extreme lean correlates with selective reporting.",
+    "overallP": "Each signal — publisher reputation, article quality, tone & balance, and (when Deep Analysis runs) fact-check evidence — is turned into a likelihood ratio and combined additively in log-odds space. The final number is the probability of credibility that falls out of that combination. Because signals multiply rather than average, strong evidence (a high-tier publisher, a matching fact-check) pulls the score meaningfully; a contradicting fact-check can now drop the score further than the old weighted-sum ever allowed. Alongside the point score we compute a 95% credible interval from a Beta posterior: a narrow band means the signals converge and we're confident, a wide band means we're honestly less sure.",
     "publisherH": "Publisher reputation",
     "publisherP": "Pulled from our curated list (~50 publishers, hand-picked from Wikipedia's Perennial Sources editor consensus plus a Chinese-language publisher set) plus the IFCN signatory list of certified fact-checkers. If we don't recognize the publisher, we fall back to article-level signals (HTTPS, byline present, article length, extracted publisher name). Fallback scores are bounded 30–60 and the rating strength indicator drops to \"low\".",
     "qualityH": "Article quality + tone & balance + devil's advocate",
@@ -207,7 +208,7 @@
     "factCheckP1": "During Deep Analysis we also run a five-stage fact-check pipeline:",
     "factCheckP2": "1. An LLM extracts up to 3 verifiable factual claims from the article (numbers, named events, quotes — not opinions).\n2. We query the Google Fact Check Tools API, which aggregates fact-checks from PolitiFact, Snopes, AFP Fact Check, Reuters Fact Check, and dozens of other IFCN-signatory outlets.\n3. We search the open web via Brave Search and keep only results from a hand-curated list of ~30 Tier-1 publishers (Reuters, AP, BBC, NYT, etc.) — everything else is discarded.\n4. Named entities (people, organizations, events) are checked against Wikipedia to catch fabricated names. Chinese-locale checks hit zh.wikipedia.org first, then fall back to English.\n5. A second LLM call synthesizes all the evidence into a per-claim verdict (corroborated / contradicted / no fact-checks found / mixed) and adjusts the article's overall score by up to ±30 points.",
     "ratingH": "Rating strength",
-    "ratingP": "• High — publisher in 2+ datasets AND article successfully read.\n• Medium — 1 dataset, OR datasets known but article couldn't be read.\n• Low — unknown publisher (cheap-signals fallback).\nComputed by deterministic rules, not LLM judgment, so it's consistent across calls.",
+    "ratingP": "Falls out of the width of the 95% credible interval:\n• High — narrow band (≤15 points). Signals converge.\n• Medium — mid band (16–30 points).\n• Low — wide band (>30 points). Typical for unknown publishers or when signals disagree.\nComputed from the per-signal precision weights, not LLM judgment, so it's consistent across calls.",
     "todoH": "What we don't do yet",
     "todoP": "No real bias dataset (we use an LLM estimate today), no domain-age lookup. Our Tier-1 publisher allowlist is hand-curated and skews US/UK, with a Chinese-language set added for diaspora users. Coverage in other languages and regions is the next focus area.",
     "feedbackH": "Feedback",

@@ -1,10 +1,12 @@
 import {
   sourceRepFromTier,
   biasAdjustment,
-  computeOverall,
+  computeOverallLegacy,
   bucketLabel,
-  deriveConfidence,
-  applyEvidenceDelta
+  computeBayesianScore,
+  computeBayesianScoreWithEvidence,
+  confidenceFromWidth,
+  type BayesianSignals
 } from '../../src/services/scoring.js';
 import type { EvidenceResult } from '../../src/services/evidence-aggregator.js';
 
@@ -25,20 +27,14 @@ describe('biasAdjustment', () => {
   it('clamps out-of-range (-10) to 50', () => expect(biasAdjustment(-10)).toBe(50));
 });
 
-describe('computeOverall', () => {
+describe('computeOverallLegacy (v1.0 weighted-sum, retained)', () => {
   it('combines 90 sourceRep + 80 content + 100 biasAdj (center)', () => {
     // 0.45*90 + 0.45*80 + 0.10*100 = 40.5 + 36 + 10 = 86.5 → 87
-    expect(computeOverall({ sourceRep: 90, contentQuality: 80, bias: 0 })).toBe(87);
-  });
-
-  it('handles low scores with extreme bias', () => {
-    // 0.45*30 + 0.45*40 + 0.10*50 (bias=±5 → adj 50) = 13.5 + 18 + 5 = 36.5 → 37
-    expect(computeOverall({ sourceRep: 30, contentQuality: 40, bias: -5 })).toBe(37);
+    expect(computeOverallLegacy({ sourceRep: 90, contentQuality: 80, bias: 0 })).toBe(87);
   });
 
   it('clamps inputs', () => {
-    expect(computeOverall({ sourceRep: 200, contentQuality: -10, bias: 0 })).toBe(55);
-    // 0.45*100 + 0.45*0 + 0.10*100 = 45 + 0 + 10 = 55
+    expect(computeOverallLegacy({ sourceRep: 200, contentQuality: -10, bias: 0 })).toBe(55);
   });
 });
 
@@ -65,29 +61,152 @@ describe('bucketLabel', () => {
   });
 });
 
-describe('deriveConfidence', () => {
-  it('high when publisher in 2+ datasets AND article extracted', () => {
-    expect(deriveConfidence({ datasetCount: 2, extractionOk: true })).toBe('high');
-    expect(deriveConfidence({ datasetCount: 3, extractionOk: true })).toBe('high');
+describe('confidenceFromWidth', () => {
+  it('narrow (≤15) → high', () => {
+    expect(confidenceFromWidth(0)).toBe('high');
+    expect(confidenceFromWidth(15)).toBe('high');
   });
-  it('medium when publisher in 1 dataset AND article extracted', () => {
-    expect(deriveConfidence({ datasetCount: 1, extractionOk: true })).toBe('medium');
+  it('mid (16-30) → medium', () => {
+    expect(confidenceFromWidth(16)).toBe('medium');
+    expect(confidenceFromWidth(30)).toBe('medium');
   });
-  it('medium when publisher in 2+ datasets BUT article extraction failed', () => {
-    expect(deriveConfidence({ datasetCount: 2, extractionOk: false })).toBe('medium');
-  });
-  it('low when no datasets even if extraction ok', () => {
-    expect(deriveConfidence({ datasetCount: 0, extractionOk: true })).toBe('low');
-  });
-  it('low when no datasets AND no extraction', () => {
-    expect(deriveConfidence({ datasetCount: 0, extractionOk: false })).toBe('low');
+  it('wide (>30) → low', () => {
+    expect(confidenceFromWidth(31)).toBe('low');
+    expect(confidenceFromWidth(100)).toBe('low');
   });
 });
 
-describe('applyEvidenceDelta', () => {
-  function ev(scoreDelta: any): EvidenceResult {
+describe('computeBayesianScore', () => {
+  // Baseline signals — a solid, in-dataset high-tier publisher with a
+  // well-written article and no bias. Individual tests override fields.
+  const solid: BayesianSignals = {
+    publisherTier: 'high',
+    publisherInDataset: true,
+    contentQuality: 95,
+    bias: 0
+  };
+
+  it('high-tier + high quality + neutral bias scores ≥ 80', () => {
+    const s = computeBayesianScore(solid);
+    expect(s.overall).toBeGreaterThanOrEqual(80);
+    // With this much converging evidence the CI should sit at the top.
+    expect(s.confidenceInterval.lower).toBeGreaterThan(70);
+  });
+
+  it('low-tier + low quality + neutral bias scores ≤ 20', () => {
+    const s = computeBayesianScore({
+      publisherTier: 'low',
+      publisherInDataset: true,
+      contentQuality: 10,
+      bias: 0
+    });
+    expect(s.overall).toBeLessThanOrEqual(20);
+    expect(s.confidenceInterval.upper).toBeLessThan(30);
+  });
+
+  it('clamps output to [5, 95] even for maximally-negative signals', () => {
+    const worst = computeBayesianScore({
+      publisherTier: 'low',
+      publisherInDataset: true,
+      contentQuality: 0,
+      bias: 5,
+      factCheck: { scoreDelta: -30, verdict: 'contradicted' }
+    });
+    expect(worst.overall).toBeGreaterThanOrEqual(5);
+    expect(worst.overall).toBeLessThanOrEqual(95);
+
+    const best = computeBayesianScore({
+      publisherTier: 'high',
+      publisherInDataset: true,
+      contentQuality: 100,
+      bias: 0,
+      factCheck: { scoreDelta: 10, verdict: 'corroborated' }
+    });
+    expect(best.overall).toBeGreaterThanOrEqual(5);
+    expect(best.overall).toBeLessThanOrEqual(95);
+  });
+
+  it('contradicted fact-check on a mixed-tier publisher compounds beyond the old ±30 clamp', () => {
+    const base: BayesianSignals = {
+      publisherTier: 'mixed',
+      publisherInDataset: true,
+      contentQuality: 60,
+      bias: 0
+    };
+    const before = computeBayesianScore(base);
+    const after = computeBayesianScore({
+      ...base,
+      factCheck: { scoreDelta: -30, verdict: 'contradicted' }
+    });
+
+    // Old system was `overall + clamp(-30..+10)` = at most a 30-point drop.
+    // Log-odds compounding lets the same evidence pull further.
+    const drop = before.overall - after.overall;
+    expect(drop).toBeGreaterThan(30);
+  });
+
+  it('confidence interval is narrower when signals converge (high-quality known publisher)', () => {
+    const narrow = computeBayesianScore(solid);
+    const wide = computeBayesianScore({
+      publisherTier: 'unknown',
+      publisherInDataset: false,
+      contentQuality: 50,
+      bias: 0
+    });
+    const narrowW = narrow.confidenceInterval.upper - narrow.confidenceInterval.lower;
+    const wideW = wide.confidenceInterval.upper - wide.confidenceInterval.lower;
+    expect(narrowW).toBeLessThan(wideW);
+  });
+
+  it('unknown publisher without deep analysis yields a wide interval → lower confidence', () => {
+    const s = computeBayesianScore({
+      publisherTier: 'unknown',
+      publisherInDataset: false,
+      contentQuality: 50,
+      bias: 0
+    });
+    const width = s.confidenceInterval.upper - s.confidenceInterval.lower;
+    expect(width).toBeGreaterThan(30);
+    expect(s.confidence).toBe('low');
+  });
+
+  it('interval width is monotonic in evidence — adding a corroborating fact-check tightens it', () => {
+    const base: BayesianSignals = {
+      publisherTier: 'medium',
+      publisherInDataset: true,
+      contentQuality: 70,
+      bias: 0
+    };
+    const before = computeBayesianScore(base);
+    const after = computeBayesianScore({
+      ...base,
+      factCheck: { scoreDelta: 10, verdict: 'corroborated' }
+    });
+    const beforeW = before.confidenceInterval.upper - before.confidenceInterval.lower;
+    const afterW = after.confidenceInterval.upper - after.confidenceInterval.lower;
+    expect(afterW).toBeLessThanOrEqual(beforeW);
+  });
+
+  it('confidenceInterval bounds are ordered and in [0, 100]', () => {
+    const inputs: BayesianSignals[] = [
+      { publisherTier: 'high', publisherInDataset: true, contentQuality: 95, bias: 0 },
+      { publisherTier: 'low', publisherInDataset: true, contentQuality: 15, bias: 4 },
+      { publisherTier: 'unknown', publisherInDataset: false, contentQuality: 50, bias: 0 },
+      { publisherTier: 'mixed', publisherInDataset: false, contentQuality: 30, bias: -3 }
+    ];
+    for (const s of inputs) {
+      const r = computeBayesianScore(s);
+      expect(r.confidenceInterval.lower).toBeGreaterThanOrEqual(0);
+      expect(r.confidenceInterval.upper).toBeLessThanOrEqual(100);
+      expect(r.confidenceInterval.lower).toBeLessThanOrEqual(r.confidenceInterval.upper);
+    }
+  });
+});
+
+describe('computeBayesianScoreWithEvidence', () => {
+  function ev(scoreDelta: number, verdict: EvidenceResult['verdict'] = 'contradicted'): EvidenceResult {
     return {
-      verdict: 'mixed',
+      verdict,
       confidence: 'medium',
       citations: [],
       scoreDelta,
@@ -95,41 +214,40 @@ describe('applyEvidenceDelta', () => {
     };
   }
 
-  it('returns overall unchanged when evidence is undefined', () => {
-    expect(applyEvidenceDelta(50, undefined)).toBe(50);
+  const base: BayesianSignals = {
+    publisherTier: 'medium',
+    publisherInDataset: true,
+    contentQuality: 70,
+    bias: 0
+  };
+
+  it('leaves score unchanged when evidence is undefined', () => {
+    const a = computeBayesianScore(base);
+    const b = computeBayesianScoreWithEvidence(base, undefined);
+    expect(b.overall).toBe(a.overall);
   });
 
-  it('returns overall unchanged when scoreDelta is 0', () => {
-    expect(applyEvidenceDelta(50, ev(0))).toBe(50);
+  it('leaves score unchanged when scoreDelta is not a finite number', () => {
+    const a = computeBayesianScore(base);
+    const b = computeBayesianScoreWithEvidence(base, ev(NaN));
+    const c = computeBayesianScoreWithEvidence(base, ev('big' as unknown as number));
+    const d = computeBayesianScoreWithEvidence(base, ev(Infinity));
+    expect(b.overall).toBe(a.overall);
+    expect(c.overall).toBe(a.overall);
+    expect(d.overall).toBe(a.overall);
   });
 
-  it('applies negative delta: 50 + (-30) → 20', () => {
-    expect(applyEvidenceDelta(50, ev(-30))).toBe(20);
+  it('scoreDelta 0 leaves the point score unchanged', () => {
+    const a = computeBayesianScore(base);
+    const b = computeBayesianScoreWithEvidence(base, ev(0, 'uncorroborated'));
+    expect(b.overall).toBe(a.overall);
   });
 
-  it('clamps high: 90 + 10 → 95 (not 100)', () => {
-    expect(applyEvidenceDelta(90, ev(10))).toBe(95);
-  });
-
-  it('clamps low: 10 + (-30) → 5 (not -20)', () => {
-    expect(applyEvidenceDelta(10, ev(-30))).toBe(5);
-  });
-
-  it('returns overall unchanged when scoreDelta is NaN', () => {
-    expect(applyEvidenceDelta(50, ev(NaN))).toBe(50);
-  });
-
-  it('returns overall unchanged when scoreDelta is non-numeric', () => {
-    expect(applyEvidenceDelta(50, ev('big' as any))).toBe(50);
-  });
-
-  it('returns overall unchanged when scoreDelta is Infinity', () => {
-    expect(applyEvidenceDelta(50, ev(Infinity))).toBe(50);
-  });
-
-  it('rounds result to integer', () => {
-    // 50.4 + 0.3 = 50.7 → 51 (overall arg is integer but delta could be float)
-    expect(applyEvidenceDelta(50, ev(0.7))).toBe(51);
-    expect(applyEvidenceDelta(50, ev(0.4))).toBe(50);
+  it('negative scoreDelta lowers overall; positive scoreDelta raises it', () => {
+    const neutral = computeBayesianScore(base);
+    const negative = computeBayesianScoreWithEvidence(base, ev(-20, 'contradicted'));
+    const positive = computeBayesianScoreWithEvidence(base, ev(10, 'corroborated'));
+    expect(negative.overall).toBeLessThan(neutral.overall);
+    expect(positive.overall).toBeGreaterThan(neutral.overall);
   });
 });
