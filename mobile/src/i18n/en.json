@@ -234,7 +234,7 @@
     "b11": "Fabricated entities slip through if they are not yet on Wikipedia — and some real people aren't on Wikipedia either, so this is not perfect.",
     "b12": "Our Tier-1 publisher list is hand-picked and skews US/UK/HK English-language plus a Chinese-language set. Quality sources in other regions may not be reflected.",
     "b13": "The aggregator LLM can hallucinate citations. We cap citation count at 5 and require URLs come from the actual search results, but errors are still possible.",
-    "b14": "Not usable in mainland China. Sift depends on Anthropic, Google Fact Check, and Wikipedia — all commonly restricted by the Great Firewall. Users in the mainland will see empty results unless they route through a VPN."
+    "b14": "Not usable in mainland China. Debunkr depends on Anthropic, Google Fact Check, and Wikipedia — all commonly restricted by the Great Firewall. Users in the mainland will see empty results unless they route through a VPN."
   },
   "mediaLit": {
     "back": "← Back",
