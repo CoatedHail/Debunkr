@@ -24,7 +24,8 @@ const BULLET_KEYS = [
   'limitations.b10',
   'limitations.b11',
   'limitations.b12',
-  'limitations.b13'
+  'limitations.b13',
+  'limitations.b14'
 ];
 
 export function LimitationsScreen({ onBack }: LimitationsScreenProps) {
