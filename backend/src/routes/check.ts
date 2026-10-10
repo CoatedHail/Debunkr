@@ -21,16 +21,34 @@ import {
 import { researchPublisherStub } from '../services/publisher-research-stub.js';
 import {
   sourceRepFromTier,
-  computeOverall,
   bucketLabel,
-  deriveConfidence,
-  applyEvidenceDelta
+  computeBayesianScore,
+  computeBayesianScoreWithEvidence,
+  type BayesianSignals
 } from '../services/scoring.js';
 import { cheapSignals } from '../services/cheap-signals.js';
 import { env, hasRealLlm } from '../config/env.js';
 import type { ApiError, PublisherLookup } from '../types/api.js';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
+
+/**
+ * Rebuild the BayesianSignals bundle from a stored JobResult so the deep
+ * pipeline can rescore with the fact-check delta added. Returns undefined
+ * when any required signal is missing.
+ */
+function reconstructSignals(job: any): BayesianSignals | undefined {
+  if (!job || !job.publisher) return undefined;
+  if (typeof job.contentQuality !== 'number') return undefined;
+  const bias = job.bias && typeof job.bias.scale === 'number' ? job.bias.scale : 0;
+  return {
+    publisherTier: job.publisher.reliabilityTier,
+    publisherInDataset:
+      Array.isArray(job.publisher.verdicts) && job.publisher.verdicts.length > 0,
+    contentQuality: job.contentQuality,
+    bias
+  };
+}
 
 let store: JobStore = createJobStore();
 let lookup: DatasetLookup = createDatasetLookup();
@@ -273,8 +291,9 @@ async function runPipeline(jobId: string, url: string, deviceId: string, ip: str
     sourceRepFrom = 'cheap-signals';
   }
 
-  const overall = computeOverall({
-    sourceRep,
+  const bayes = computeBayesianScore({
+    publisherTier: publisher.reliabilityTier,
+    publisherInDataset: publisher.verdicts.length > 0,
     contentQuality: analysis.contentQuality,
     bias: analysis.biasScale
   });
@@ -291,12 +310,10 @@ async function runPipeline(jobId: string, url: string, deviceId: string, ip: str
       excerpt
     },
     publisher,
-    overall,
-    bucket: bucketLabel(overall),
-    confidence: deriveConfidence({
-      datasetCount: publisher.verdicts.length,
-      extractionOk: true
-    }),
+    overall: bayes.overall,
+    bucket: bucketLabel(bayes.overall),
+    confidence: bayes.confidence,
+    confidenceInterval: bayes.confidenceInterval,
     sourceRep,
     sourceRepFrom,
     cheapSignals: cheap,
@@ -338,26 +355,36 @@ async function runDeepPipeline(jobId: string, deviceId: string, ip: string): Pro
     return;
   }
 
-  // M8: if external evidence shifted credibility, adjust overall + bucket.
+  // v1.5: recompute the Bayesian score with the fact-check delta folded in as
+  // another log-odds signal. Falls back to leaving the score untouched when
+  // we can't reconstruct the base signals (missing content quality, missing
+  // publisher, etc.) — better a stale-but-consistent score than a NaN.
   const evidence = result.evidence;
   const currentJob = store.get(jobId);
-  const currentOverall =
-    typeof currentJob?.overall === 'number' ? currentJob.overall : undefined;
+  const baseSignals = reconstructSignals(currentJob);
 
   let nextOverall: number | undefined;
   let nextBucket: ReturnType<typeof bucketLabel> | undefined;
-  if (evidence && typeof currentOverall === 'number') {
-    const adjusted = applyEvidenceDelta(currentOverall, evidence);
-    if (adjusted !== currentOverall) {
-      nextOverall = adjusted;
-      nextBucket = bucketLabel(adjusted);
+  let nextConfidence: ReturnType<typeof computeBayesianScore>['confidence'] | undefined;
+  let nextInterval: { lower: number; upper: number } | undefined;
+  if (baseSignals) {
+    const rescored = computeBayesianScoreWithEvidence(baseSignals, evidence);
+    if (rescored.overall !== currentJob?.overall) {
+      nextOverall = rescored.overall;
+      nextBucket = bucketLabel(rescored.overall);
     }
+    // Interval + confidence tighten (or widen) whenever we add the fact-check
+    // signal, so always overwrite them regardless of whether `overall` moved.
+    nextConfidence = rescored.confidence;
+    nextInterval = rescored.confidenceInterval;
   }
 
   store.update(jobId, {
     deepStatus: 'complete',
     deepAnalysis: result.deepAnalysis,
-    ...(nextOverall !== undefined ? { overall: nextOverall, bucket: nextBucket } : {})
+    ...(nextOverall !== undefined ? { overall: nextOverall, bucket: nextBucket } : {}),
+    ...(nextConfidence !== undefined ? { confidence: nextConfidence } : {}),
+    ...(nextInterval !== undefined ? { confidenceInterval: nextInterval } : {})
   });
 }
 

@@ -145,6 +145,12 @@ export interface JobResult {
   overall?: number;
   bucket?: OverallBucket;
   confidence?: Confidence;
+  /**
+   * v1.5 — 95% credible interval on the underlying credibility probability,
+   * expressed on the same 0-100 scale as `overall`. Derived from a Beta
+   * posterior over the per-signal likelihood ratios.
+   */
+  confidenceInterval?: { lower: number; upper: number };
 
   sourceRep?: number;
   sourceRepFrom?: 'curated-wikipedia' | 'cheap-signals';

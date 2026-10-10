@@ -603,6 +603,20 @@ function HeadlineBlock({ job, onInfo }: { job: JobResult; onInfo: (name: string)
         </Text>
         <Text style={[styles.scoreSuffix, { color }]}>/ 100</Text>
       </View>
+      {/* v1.5: 95%-CI subline. Hidden when the interval is essentially the
+          point score (upper - lower < 5) — showing "68 (95% CI: 67-69)"
+          would be visual noise. */}
+      {job.confidenceInterval &&
+        job.confidenceInterval.upper - job.confidenceInterval.lower >= 5 && (
+          <Text
+            style={styles.credibleIntervalText}
+            accessibilityLabel={`95 percent credible interval ${job.confidenceInterval.lower} to ${job.confidenceInterval.upper}`}
+          >
+            {t('sections.credibleIntervalLabel')}
+            {' '}
+            {job.confidenceInterval.lower}–{job.confidenceInterval.upper}
+          </Text>
+        )}
       <Text style={[styles.headlineLabel, { color }]}>{bucketLabel(job.bucket)}</Text>
       <Pressable
         accessibilityRole="button"
@@ -1931,6 +1945,12 @@ const styles = StyleSheet.create({
   headlineScore: { fontSize: 72, fontWeight: '800', lineHeight: 78, letterSpacing: -2 },
   scoreSuffix: { fontSize: 18, fontWeight: '600', marginLeft: 6, opacity: 0.7 },
   headlineLabel: { fontSize: 22, fontWeight: '600', marginTop: 8 },
+  credibleIntervalText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 6,
+    letterSpacing: 0.2
+  },
 
   confidencePill: {
     borderWidth: 1,
