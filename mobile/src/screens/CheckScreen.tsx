@@ -929,6 +929,16 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
   const [loadingStage, setLoadingStage] = useState<string>(t('check.loading.reading'));
   const persistedJobIdsRef = useRef<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView | null>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Clear the "Copied!" reset timer if the screen unmounts mid-countdown.
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   // Daily-rotating content (recomputed once per mount — stable per UTC day).
   const dayIdx = dailyIndex();
@@ -1071,6 +1081,9 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
     setUrl('');
     setAiLookupInFlight(false);
     setAiLookupError(null);
+    setShareOpen(false);
+    setCopied(false);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
     setState({ kind: 'idle' });
     // Scroll back to the top of the empty state.
     scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -1121,6 +1134,17 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
       await Share.share({ message, url: articleUrl });
     } catch {
       // user cancelled or platform unsupported — no-op
+    }
+  }
+
+  async function onCopyLink(): Promise<void> {
+    try {
+      await Clipboard.setStringAsync(url);
+      setCopied(true);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard write failed (rare) — leave the button in its default state.
     }
   }
 
@@ -1340,14 +1364,51 @@ export function CheckScreen({ onOpenMethodology, onOpenLimitations, onOpenMediaL
               <FeedbackBlock jobId={completeJob.jobId} deviceId={feedbackDeviceId} />
 
               {completeJob.overall !== undefined && completeJob.bucket && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('share.button')}
-                  onPress={() => onShareResult(completeJob)}
-                  style={({ pressed }) => [styles.shareButton, pressed && styles.pressed]}
-                >
-                  <Text style={styles.shareButtonText}>{t('share.button')}</Text>
-                </Pressable>
+                <View style={styles.shareBlock}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('share.button')}
+                    accessibilityState={{ expanded: shareOpen }}
+                    onPress={() => setShareOpen((v) => !v)}
+                    style={({ pressed }) => [styles.shareButton, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.shareButtonText}>{t('share.button')}</Text>
+                  </Pressable>
+
+                  {shareOpen && (
+                    <View style={styles.shareLinkCard}>
+                      <Text style={styles.shareLinkLabel}>{t('share.linkLabel')}</Text>
+                      <View style={styles.shareLinkRow}>
+                        <Text
+                          style={styles.shareLinkText}
+                          numberOfLines={1}
+                          ellipsizeMode="middle"
+                          selectable
+                        >
+                          {url}
+                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={copied ? t('share.copied') : t('share.copy')}
+                          onPress={onCopyLink}
+                          style={({ pressed }) => [styles.copyButton, pressed && styles.pressed]}
+                        >
+                          <Text style={styles.copyButtonText}>
+                            {copied ? t('share.copied') : t('share.copy')}
+                          </Text>
+                        </Pressable>
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={t('share.more')}
+                        onPress={() => onShareResult(completeJob)}
+                        style={({ pressed }) => [styles.shareMoreButton, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.shareMoreText}>{t('share.more')}</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
               )}
 
               {completeJob.article?.title && (
@@ -2409,5 +2470,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.2
+  },
+
+  // ---- Share link + copy row -----------------------------------------------
+  shareBlock: {
+    alignSelf: 'stretch'
+  },
+  shareLinkCard: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    borderRadius: 14,
+    backgroundColor: COLORS.cream,
+    padding: 14
+  },
+  shareLinkLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginBottom: 8
+  },
+  shareLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  shareLinkText: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.text,
+    marginRight: 10
+  },
+  copyButton: {
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: COLORS.deepTeal
+  },
+  copyButtonText: {
+    color: COLORS.white,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2
+  },
+  shareMoreButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start'
+  },
+  shareMoreText: {
+    color: COLORS.deepTeal,
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline'
   }
 });
