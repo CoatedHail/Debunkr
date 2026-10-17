@@ -3,5 +3,3 @@ title: Debunkr
 description: Article credibility checker
 plugins:
   - jekyll-feed
-exclude:
-  - superpowers/
