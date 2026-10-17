@@ -1,4 +1,9 @@
-import { isBlockedHostname, isBlockedIp } from '../../src/services/ssrf-guard.js';
+import {
+  assertUrlNotBlocked,
+  isBlockedHostname,
+  isBlockedIp,
+  type HostResolver
+} from '../../src/services/ssrf-guard.js';
 
 describe('isBlockedIp', () => {
   it('blocks RFC1918 private ranges', () => {
@@ -37,12 +42,43 @@ describe('isBlockedIp', () => {
   });
 });
 
+// Fake resolvers so these tests never touch real DNS.
+const resolvesTo = (...ips: string[]): HostResolver => async () => ips.map((address) => ({ address }));
+const failingResolver: HostResolver = async () => { throw new Error('ENOTFOUND'); };
+const unusedResolver: HostResolver = async () => { throw new Error('resolver should not be called'); };
+
 describe('isBlockedHostname', () => {
-  it('blocks localhost', async () => {
-    expect(await isBlockedHostname('localhost')).toBe(true);
+  it('blocks localhost without resolving', async () => {
+    expect(await isBlockedHostname('localhost', unusedResolver)).toBe(true);
   });
-  it('does not block a public domain', async () => {
-    // Hits real DNS. If test env has no DNS, this is a known limitation.
-    expect(await isBlockedHostname('example.com')).toBe(false);
+  it('blocks .local / .internal suffixes without resolving', async () => {
+    expect(await isBlockedHostname('printer.local', unusedResolver)).toBe(true);
+    expect(await isBlockedHostname('db.internal', unusedResolver)).toBe(true);
+  });
+  it('does not block a domain that resolves to a public IP', async () => {
+    expect(await isBlockedHostname('example.com', resolvesTo('93.184.216.34'))).toBe(false);
+  });
+  it('blocks a public-looking domain that resolves to a private IP', async () => {
+    expect(await isBlockedHostname('evil.example', resolvesTo('10.0.0.5'))).toBe(true);
+    expect(await isBlockedHostname('evil.example', resolvesTo('169.254.169.254'))).toBe(true);
+  });
+  it('blocks if ANY resolved address is private', async () => {
+    expect(await isBlockedHostname('mixed.example', resolvesTo('93.184.216.34', '127.0.0.1'))).toBe(true);
+  });
+  it('fails closed when DNS lookup fails', async () => {
+    expect(await isBlockedHostname('nxdomain.example', failingResolver)).toBe(true);
+  });
+});
+
+describe('assertUrlNotBlocked', () => {
+  it('rejects an unparseable URL', async () => {
+    expect(await assertUrlNotBlocked('not a url', unusedResolver)).toEqual({ ok: false, reason: 'Invalid URL' });
+  });
+  it('allows a URL whose host resolves publicly', async () => {
+    expect(await assertUrlNotBlocked('https://example.com/a', resolvesTo('93.184.216.34'))).toEqual({ ok: true });
+  });
+  it('rejects a URL whose host resolves privately', async () => {
+    const result = await assertUrlNotBlocked('https://evil.example/a', resolvesTo('192.168.1.10'));
+    expect(result.ok).toBe(false);
   });
 });

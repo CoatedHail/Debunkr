@@ -52,13 +52,21 @@ export function isBlockedIp(ip: string): boolean {
 
 const STATIC_BLOCKED_HOSTS = new Set(['localhost', 'localhost.localdomain', 'ip6-localhost']);
 
-export async function isBlockedHostname(hostname: string): Promise<boolean> {
+/** Resolves a hostname to all of its addresses. Injectable so tests don't hit real DNS. */
+export type HostResolver = (hostname: string) => Promise<Array<{ address: string }>>;
+
+const defaultResolver: HostResolver = (hostname) => dnsLookup(hostname, { all: true });
+
+export async function isBlockedHostname(
+  hostname: string,
+  resolve: HostResolver = defaultResolver
+): Promise<boolean> {
   const lc = hostname.toLowerCase();
   if (STATIC_BLOCKED_HOSTS.has(lc)) return true;
   if (lc.endsWith('.local') || lc.endsWith('.internal') || lc.endsWith('.localhost')) return true;
   if (isIP(lc)) return isBlockedIp(lc);
   try {
-    const addresses = await dnsLookup(lc, { all: true });
+    const addresses = await resolve(lc);
     for (const { address } of addresses) {
       if (isBlockedIp(address)) return true;
     }
@@ -68,10 +76,13 @@ export async function isBlockedHostname(hostname: string): Promise<boolean> {
   }
 }
 
-export async function assertUrlNotBlocked(url: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+export async function assertUrlNotBlocked(
+  url: string,
+  resolve: HostResolver = defaultResolver
+): Promise<{ ok: true } | { ok: false; reason: string }> {
   let parsed: URL;
   try { parsed = new URL(url); } catch { return { ok: false, reason: 'Invalid URL' }; }
-  if (await isBlockedHostname(parsed.hostname)) {
+  if (await isBlockedHostname(parsed.hostname, resolve)) {
     return { ok: false, reason: `Refusing to fetch ${parsed.hostname}: blocked address space.` };
   }
   return { ok: true };
