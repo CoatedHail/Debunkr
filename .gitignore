@@ -38,3 +38,8 @@ data/
 # But DO track source-controlled datasets under backend/src/data/
 !backend/src/data/
 !backend/src/data/**
+
+# Local editor/assistant config (kept out of the repo)
+.claude/
+CLAUDE.md
+AGENTS.md
