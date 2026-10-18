@@ -4,7 +4,7 @@
 
 Debunkr is an iOS app (React Native / Expo) backed by a TypeScript API. It's a media-literacy tool: the goal is to show *why* an article earns its score — who published it, how well it's sourced, and the strongest argument that the rating could be wrong — rather than act as an oracle.
 
-> Download: [App Store link]
+> Download: [App Store](https://apps.apple.com/us/app/debunkr/id6779001480)
 
 ---
 
